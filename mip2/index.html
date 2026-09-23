@@ -5,8 +5,8 @@
          locally and inject their real MRAID bridge instead of letting it hit
          the network. Must stay the first script tag. In a plain browser (or
          a network that doesn't use this convention) it just 404s harmlessly
-         and window.mraid stays undefined — openClickthrough already handles
-         that via its fallback. -->
+         and window.mraid stays undefined. Click-through requires a usable
+         MRAID bridge and does nothing while it is unavailable. -->
     <script src="mraid.js"></script>
     <script>
       (function () {
@@ -68,8 +68,8 @@
           }
         };
 
-        // Click-through: resolve the standard click-tag variables, use
-        // mraid.open() when MRAID is usable, fall back to window.open().
+        // Click-through: resolve the standard click-tag variables and use
+        // mraid.open() only when MRAID is usable.
         window.__mip.openClickthrough = function () {
           var mraid = window.mraid || {};
           var clickTarget =
@@ -92,15 +92,9 @@
               }
               return;
             } catch (error) {
-              // Continue to the browser fallback.
+              console.error("mraid.open failed", error);
             }
           }
-
-          window.open(
-            clickTarget || "about:blank",
-            "_blank",
-            "noopener,noreferrer",
-          );
         };
       })();
     </script>
