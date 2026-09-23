@@ -6,6 +6,7 @@ import React from "react";
 // literal text survives Vite's minifier. See CLAUDE.md before touching this.
 // eslint-disable-next-line react-refresh/only-export-components -- reused outside this file (see CLAUDE.md)
 export const openClickthrough = () => {
+  console.log("CTA clicked");
   window.__mip.openClickthrough();
 };
 
