@@ -1,0 +1,378 @@
+@import "tailwindcss";
+
+/* I·M·8 entrances keep independent canvas positioning and scratch coordinates. */
+@keyframes im8-logo-enter {
+  from { opacity: 0; transform: perspective(850px) rotateX(-45deg) translateY(-24px); }
+  to { opacity: 1; transform: none; }
+}
+.im8-logo-enter { animation: im8-logo-enter 620ms 60ms cubic-bezier(.16,1,.3,1) both; }
+@keyframes im8-headline-enter {
+  from { opacity: 0; transform: translateX(-42px) rotate(-2deg); }
+  to { opacity: 1; transform: none; }
+}
+.im8-headline-enter { animation: im8-headline-enter 560ms 140ms cubic-bezier(.16,1,.3,1) both; }
+/* Pop the opaque card upward, then settle at its original size. */
+@keyframes im8-scratch-enter {
+  0% { transform: translateY(28px) scale(.84); }
+  68% { transform: translateY(-4px) scale(1.035); }
+  100% { transform: none; }
+}
+.im8-scratch-enter {
+  animation: im8-scratch-enter 580ms 180ms cubic-bezier(.22,.8,.3,1) both;
+}
+.im8-scratch-enter.is-active { animation: none; }
+@keyframes im8-platform-enter {
+  from { opacity: 0; transform: translateY(65px); }
+  to { opacity: 1; transform: none; }
+}
+.im8-platform-enter { animation: im8-platform-enter 700ms 80ms cubic-bezier(.16,1,.3,1) both; }
+@keyframes im8-product-enter {
+  from { opacity: 0; transform: perspective(1200px) rotateY(-18deg) scale(.9); }
+  to { opacity: 1; transform: none; }
+}
+.im8-product-enter { animation: im8-product-enter 760ms 220ms cubic-bezier(.16,1,.3,1) both; }
+/* After the coating clears, the frame and offer settle together as one card. */
+@keyframes im8-offer-reveal {
+  0%, 100% { transform: scale(1); }
+  48% { transform: scale(1.045); }
+  76% { transform: scale(1.012); }
+}
+.im8-offer-reveal {
+  animation: im8-offer-reveal 720ms 380ms cubic-bezier(.22,.8,.3,1) both;
+}
+@keyframes im8-hand-enter {
+  from { opacity: 0; scale: .8; }
+  to { opacity: 1; scale: 1; }
+}
+@keyframes im8-hand-scratch {
+  0%, 100% { transform: translate(0, 0) rotate(-4deg); }
+  22% { transform: translate(-125px, 5px) rotate(-10deg); }
+  48% { transform: translate(100px, -10px) rotate(5deg); }
+  72% { transform: translate(-100px, 8px) rotate(-8deg); }
+}
+.im8-hand-guide {
+  animation: im8-hand-enter 400ms 780ms ease-out both,
+    im8-hand-scratch 2.2s 1180ms ease-in-out infinite;
+}
+@keyframes im8-cta-enter {
+  from { opacity: 0; transform: translateY(22px) rotate(3deg); }
+  to { opacity: 1; transform: none; }
+}
+.im8-cta-enter.animate-scale-pulse {
+  animation: im8-cta-enter 540ms 420ms cubic-bezier(.16,1,.3,1) both,
+    scale-pulse 1.6s 960ms ease-in-out infinite;
+}
+.im8-cta-hit-enter { animation: im8-cta-enter 540ms 420ms cubic-bezier(.16,1,.3,1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .im8-logo-enter, .im8-headline-enter, .im8-scratch-enter,
+  .im8-platform-enter, .im8-product-enter, .im8-offer-reveal, .im8-hand-guide,
+  .im8-cta-enter.animate-scale-pulse, .im8-cta-hit-enter { animation: none; }
+}
+
+.end-scene-fade {
+  opacity: 0;
+  transition: opacity 500ms ease-out;
+}
+.end-scene-fade.is-visible { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .end-scene-fade { transition: none; }
+}
+
+/* Entrances leave the canvas-relative centering translate untouched. */
+@keyframes musely-logo-enter {
+  from { opacity: 0; transform: perspective(900px) translateY(-42px) rotateX(-55deg); }
+  to { opacity: 1; transform: none; }
+}
+.musely-logo-enter {
+  animation: musely-logo-enter 640ms cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes musely-headline-enter {
+  from { opacity: 0; transform: translateX(-72px) rotate(-3deg); }
+  to { opacity: 1; transform: none; }
+}
+.musely-headline-enter {
+  animation: musely-headline-enter 600ms 100ms cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes musely-subtitle-enter {
+  from { opacity: 0; transform: translateY(26px); }
+  to { opacity: 1; transform: none; }
+}
+.musely-subtitle-enter {
+  animation: musely-subtitle-enter 460ms 220ms ease-out both;
+}
+@keyframes musely-ticket-enter {
+  from { opacity: 0; transform: rotate(-2deg) scale(.9); }
+  to { opacity: 1; transform: none; }
+}
+.musely-ticket-enter {
+  /* No forward opacity fill: the later Try Again fade owns opacity. */
+  animation: musely-ticket-enter 740ms 80ms cubic-bezier(.16,1,.3,1) backwards;
+}
+@keyframes musely-grid-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.musely-grid-enter {
+  /* Fade the complete grid in place without clipping or moving scratch masks. */
+  animation: musely-grid-enter 450ms 180ms ease-out backwards;
+}
+@keyframes musely-cta-enter {
+  from { opacity: .3; transform: translateY(40px); }
+  to { opacity: 1; transform: none; }
+}
+.musely-cta-enter.animate-scale-pulse {
+  animation:
+    musely-cta-enter 600ms 360ms cubic-bezier(.16,1,.3,1) both,
+    scale-pulse 1.6s 960ms ease-in-out infinite;
+}
+.musely-cta-hit-enter {
+  animation: musely-cta-enter 600ms 360ms cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes musely-hand-enter {
+  from { opacity: 0; scale: .7; }
+  to { opacity: 1; scale: 1; }
+}
+.scratch-hand.musely-hand-enter {
+  animation:
+    musely-hand-enter 400ms 740ms ease-out both,
+    scratch-guide 2.2s 1140ms ease-in-out infinite;
+}
+@keyframes musely-product-enter {
+  from { opacity: 0; transform: perspective(1200px) rotateY(-38deg) scale(.86); }
+  to { opacity: 1; transform: none; }
+}
+.musely-product-enter {
+  animation: musely-product-enter 780ms cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes musely-discount-enter {
+  0% { opacity: 0; transform: rotate(14deg) scale(1.45); }
+  65% { opacity: 1; transform: rotate(-2deg) scale(.96); }
+  100% { opacity: 1; transform: none; }
+}
+.musely-discount-enter {
+  animation: musely-discount-enter 560ms 200ms cubic-bezier(.22,.8,.3,1) both;
+}
+@keyframes musely-congratulations-enter {
+  from { opacity: 0; transform: perspective(1000px) rotateX(-50deg) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+.musely-congratulations-enter {
+  animation: musely-congratulations-enter 620ms cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes musely-offer-enter {
+  from { opacity: 0; transform: scaleX(.88); }
+  to { opacity: 1; transform: none; }
+}
+.musely-offer-enter {
+  animation: musely-offer-enter 480ms 140ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .musely-logo-enter, .musely-headline-enter, .musely-subtitle-enter,
+  .musely-ticket-enter, .musely-grid-enter,
+  .musely-cta-enter.animate-scale-pulse, .musely-cta-hit-enter,
+  .scratch-hand.musely-hand-enter, .musely-product-enter, .musely-discount-enter,
+  .musely-congratulations-enter, .musely-offer-enter {
+    animation: none;
+  }
+}
+
+/* Result changes preserve the card's layout and its live scratch masks. */
+.musely-card-state {
+  transition: opacity 400ms ease-out;
+}
+.musely-card-state.is-hidden { opacity: 0; }
+.musely-section-clear {
+  opacity: 0;
+  transition: opacity 500ms ease-out;
+}
+.musely-section-clear.is-complete { opacity: 1; }
+@keyframes musely-result-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.musely-result-enter { animation: musely-result-enter 450ms ease-out both; }
+.musely-retry-enter { animation: musely-result-enter 350ms 250ms ease-out both; }
+.musely-retry-card-state { transition: opacity 400ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .musely-card-state, .musely-section-clear, .musely-retry-card-state { transition: none; }
+  .musely-result-enter, .musely-retry-enter { animation: none; }
+}
+
+@keyframes scale-pulse {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.12; }
+}
+
+.animate-scale-pulse {
+  animation: scale-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes scratch-guide {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  35% { transform: translate(-95px, -24px) rotate(-7deg); }
+  70% { transform: translate(22px, 30px) rotate(4deg); }
+}
+
+.scratch-hand {
+  animation: scratch-guide 2.2s ease-in-out infinite;
+}
+
+.scratch-coating {
+  will-change: opacity;
+  opacity: 1;
+  transition: opacity 500ms ease-out;
+}
+
+.scratch-coating.is-revealed {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-scale-pulse, .scratch-hand { animation: none; }
+  .scratch-coating { transition: none; }
+}
+
+
+/* Each asset owns its entrance; standalone translate keeps canvas centering intact. */
+@keyframes beam-logo-enter {
+  from { opacity: 0; transform: perspective(800px) rotateX(-55deg) translateY(-28px); }
+  to { opacity: 1; transform: none; }
+}
+.beam-logo-enter {
+  animation: beam-logo-enter 600ms cubic-bezier(.2,.75,.25,1) both;
+}
+
+@keyframes beam-headline-enter {
+  from { opacity: 0; transform: translateX(-65px); }
+  to { opacity: 1; transform: none; }
+}
+.beam-headline-enter {
+  animation: beam-headline-enter 520ms 100ms cubic-bezier(.2,.75,.25,1) both;
+}
+
+@keyframes beam-panel-enter {
+  from { transform: translateY(52px) scale(.94); }
+  to { opacity: 1; transform: none; }
+}
+.beam-panel-enter {
+  animation: beam-panel-enter 580ms cubic-bezier(.2,.75,.25,1) both;
+}
+
+/* A centered pouch pop; transparent asset edges stay intact. */
+@keyframes beam-pouch-enter {
+  0% { opacity: 0; scale: .86; }
+  68% { opacity: 1; scale: 1.025; }
+  100% { opacity: 1; scale: 1; }
+}
+.beam-pouch-enter {
+  animation: beam-pouch-enter 720ms cubic-bezier(.2,.7,.3,1) both;
+}
+
+@keyframes beam-instruction-enter {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+.beam-instruction-enter {
+  animation: beam-instruction-enter 460ms 240ms ease-out both;
+}
+
+@keyframes beam-promotion-enter {
+  from { opacity: 0; transform: perspective(900px) rotateX(25deg); }
+  to { opacity: 1; transform: none; }
+}
+.beam-promotion-enter {
+  animation: beam-promotion-enter 480ms 340ms ease-out both;
+}
+
+@keyframes beam-cta-enter {
+  from { opacity: .3; transform: translateY(35px); }
+  to { opacity: 1; transform: none; }
+}
+.beam-cta-enter.animate-scale-pulse {
+  animation:
+    beam-cta-enter 620ms 180ms cubic-bezier(.2,.75,.25,1) both,
+    scale-pulse 1.6s 800ms ease-in-out infinite;
+}
+
+@keyframes beam-hand-enter {
+  from { opacity: 0; scale: .78; }
+  to { opacity: 1; scale: 1; }
+}
+.scratch-hand {
+  animation:
+    beam-hand-enter 400ms 600ms ease-out both,
+    scratch-guide 2.2s 1s ease-in-out infinite;
+}
+
+@keyframes beam-offer-reveal {
+  0%, 100% {
+    transform: none;
+  }
+  38% {
+    transform: translateY(-16px) rotate(-1deg) scale(1.055);
+  }
+  72% {
+    transform: translateY(3px) rotate(0.3deg) scale(0.995);
+  }
+}
+
+.beam-offer-reveal {
+  animation: beam-offer-reveal 850ms
+    cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beam-logo-enter,
+  .beam-headline-enter,
+  .beam-panel-enter,
+  .beam-pouch-enter,
+  .beam-instruction-enter,
+  .beam-promotion-enter,
+  .beam-cta-enter.animate-scale-pulse,
+  .scratch-hand,
+  .beam-offer-reveal {
+    animation: none;
+  }
+}
+
+
+/* First touch hands opacity ownership to the scratch completion transition. */
+.scratch-coating.is-active {
+  animation: none;
+}
+
+/* Animate the start of a gesture once; never delay or dash the moving trail. */
+@keyframes beam-scratch-erase-a {
+  from { stroke-width: calc(var(--scratch-brush-width) * .8); }
+  to { stroke-width: var(--scratch-brush-width); }
+}
+@keyframes beam-scratch-erase-b {
+  from { stroke-width: calc(var(--scratch-brush-width) * .8); }
+  to { stroke-width: var(--scratch-brush-width); }
+}
+.beam-scratch-stroke {
+  stroke-dasharray: none;
+}
+.beam-scratch-stroke.is-stroke-a {
+  animation: beam-scratch-erase-a 90ms ease-out both;
+}
+.beam-scratch-stroke.is-stroke-b {
+  animation: beam-scratch-erase-b 90ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .beam-scratch-stroke.is-stroke-a,
+  .beam-scratch-stroke.is-stroke-b {
+    animation: none;
+  }
+}
+
+@keyframes beam-end-placeholder {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.beam-end-placeholder {
+  animation: beam-end-placeholder 500ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .beam-end-placeholder { animation: none; }
+}
