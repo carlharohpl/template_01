@@ -1,0 +1,317 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Brandon Grotesque";
+  src: url("./assets/fonts/HvDTrial_Brandon_Grotesque_bold-BF64a625c9151d5.otf") format("opentype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@keyframes offer-panel-enter {
+  from { transform: translateY(calc(100dvh / var(--ui-scale, 1))); }
+  to { transform: none; }
+}
+.offer-panel-enter, .offer-panel-discount, .offer-panel-line, .offer-panel-date, .offer-panel-hit {
+  animation: offer-panel-enter 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.offer-panel-cta.animate-scale-pulse {
+  animation:
+    offer-panel-enter 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both,
+    scale-pulse 1.6s ease-in-out 700ms infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offer-panel-enter, .offer-panel-discount, .offer-panel-line, .offer-panel-date,
+  .offer-panel-hit, .offer-panel-cta.animate-scale-pulse { animation: none; }
+}
+
+@keyframes scale-pulse {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.12; }
+}
+
+.animate-scale-pulse {
+  animation: scale-pulse 1.6s ease-in-out infinite;
+}
+
+.creative-loading { opacity: 0; }
+
+.offer-wheel, .pointer-spinning {
+  --wheel-spin-duration: 2234ms;
+}
+
+.offer-wheel {
+  rotate: 0deg;
+}
+
+@keyframes wheel-idle {
+  from { rotate: var(--spin-to); }
+  to { rotate: calc(var(--spin-to) + 360deg); }
+}
+
+.wheel-idle {
+  animation:
+    wheel-enter 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 120ms both,
+    wheel-idle 30s linear 1020ms infinite;
+}
+
+.wheel-retry-idle { animation: wheel-idle 30s linear infinite; }
+
+@keyframes wheel-spin {
+  from { rotate: var(--spin-from); }
+  to { rotate: var(--spin-to); }
+}
+
+.wheel-spinning {
+  animation: wheel-spin var(--wheel-spin-duration) cubic-bezier(0.42, 0, 0.12, 1) both;
+}
+
+.wheel-stopped { animation: none; rotate: var(--spin-to); }
+
+@keyframes sale-title-enter {
+  from { transform: translateY(-28px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.sale-title-enter { animation: sale-title-enter 550ms ease-out 140ms both; }
+
+@keyframes kit-card-enter {
+  from { transform: perspective(1200px) translateY(80px) rotateX(12deg); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.kit-card-enter { animation: kit-card-enter 650ms cubic-bezier(0.2, 0.8, 0.2, 1) 100ms both; }
+
+@keyframes kit-title-enter {
+  from { transform: translateX(-30px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.kit-title-enter { animation: kit-title-enter 450ms ease-out 280ms both; }
+
+@keyframes discount-enter {
+  from { transform: translateY(45px) scale(0.94); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.discount-enter { animation: discount-enter 600ms cubic-bezier(0.2, 0.8, 0.2, 1) 300ms both; }
+
+main[data-offer-ready="false"] :is(.winning-title, .benefit-enter, .kit-card-enter, .kit-title-enter, .discount-enter) {
+  animation-play-state: paused;
+}
+
+@keyframes pointer-enter {
+  from { transform: translateY(-85px) rotate(-15deg); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes pointer-idle {
+  0%, 65%, 100% { rotate: 0deg; }
+  30% { rotate: -9deg; }
+  48% { rotate: 3deg; }
+}
+.pointer-idle {
+  transform-origin: 50% 22%;
+  animation: pointer-idle 1.4s ease-in-out infinite;
+}
+.pointer-enter.pointer-idle {
+  animation:
+    pointer-enter 650ms ease-out 260ms both,
+    pointer-idle 1.4s ease-in-out 910ms infinite;
+}
+
+.pointer-settled { animation: none; rotate: 0deg; }
+
+@keyframes pointer-spin {
+  0%, 12%, 20%, 26%, 32%, 38%, 44%, 50%, 57%, 66%, 78%, 100% { rotate: 0deg; }
+  6%, 16%, 23%, 29%, 35%, 41%, 47%, 53%, 61%, 71% { rotate: -12deg; }
+  84% { rotate: -7deg; }
+  92% { rotate: 2deg; }
+}
+
+.pointer-spinning {
+  transform-origin: 50% 22%;
+  animation: pointer-spin var(--wheel-spin-duration) ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pointer-idle, .pointer-enter.pointer-idle, .pointer-spinning { animation: none; rotate: 0deg; }
+}
+
+@keyframes benefit-enter { from { opacity: 0; } to { opacity: 1; } }
+.benefit-enter { animation: benefit-enter 250ms ease-out 600ms both; }
+.result-shade { animation: benefit-enter 400ms ease-out both; }
+
+@keyframes result-logo-enter {
+  from { transform: perspective(800px) translate3d(0, -45px, 0) rotateX(-35deg); opacity: 0; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+.result-logo-enter { animation: result-logo-enter 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+@keyframes offer-cta-enter {
+  from { transform: translate3d(0, 65px, 0) scale(0.92); opacity: 0; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+.offer-cta-enter.animate-scale-pulse {
+  animation:
+    offer-cta-enter 550ms cubic-bezier(0.2, 0.8, 0.2, 1) 350ms both,
+    scale-pulse 1.6s ease-in-out 900ms infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .result-logo-enter, .offer-cta-enter.animate-scale-pulse { animation: none; }
+}
+
+/* Prepare only the entering artwork, never the scaled canvas or background. */
+.result-logo-enter, .offer-cta-enter {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+main[data-offer-ready="false"] :is(.result-logo-enter, .offer-cta-enter) {
+  animation-play-state: paused;
+}
+
+@keyframes confetti-fall {
+  from { transform: translateY(-40px) rotate(0deg); }
+  to { transform: translateY(calc(100dvh + 40px)) rotate(var(--rotate)); }
+}
+.result-confetti { animation: confetti-fall var(--duration) linear var(--delay) infinite; }
+
+@keyframes hand-arrive {
+  from { transform: translate(190px, 300px) rotate(12deg); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes hand-tap {
+  0%, 24%, 70%, 100% { scale: 1; rotate: 0deg; }
+  42%, 48% { scale: 0.9; rotate: -4deg; }
+}
+
+.hand-click {
+  transform-origin: 24% 3%;
+  animation:
+    hand-arrive 700ms cubic-bezier(0.22, 0.7, 0.25, 1) 700ms both,
+    hand-tap 1.5s ease-in-out 1400ms infinite;
+}
+
+@keyframes hand-exit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.hand-exit { animation: hand-exit 220ms ease-out both; }
+
+@keyframes winning-title {
+  0% {
+    transform: perspective(900px) translateY(42px) rotateX(-65deg) scale(0.84);
+    opacity: 0;
+  }
+  72% {
+    transform: perspective(900px) translateY(-6px) rotateX(5deg) scale(1.035);
+    opacity: 1;
+  }
+  100% { transform: none; opacity: 1; }
+}
+
+.winning-title {
+  transform-origin: 50% 100%;
+  animation: winning-title 650ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+/* Pause until the supplied assets are ready, then start the choreography together. */
+main[data-phase="loading"] .scene-entrance { animation-play-state: paused; }
+
+@keyframes logo-enter {
+  from { transform: perspective(900px) translateY(-70px) rotateX(-75deg); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.logo-enter {
+  transform-origin: 50% 0%;
+  animation: logo-enter 620ms cubic-bezier(0.18, 0.8, 0.25, 1) 70ms both;
+}
+
+@keyframes headline-enter {
+  from { transform: translateX(50px); clip-path: inset(0 100% 0 0); opacity: 0; }
+  to { transform: none; clip-path: inset(0); opacity: 1; }
+}
+.headline-enter { animation: headline-enter 600ms cubic-bezier(0.18, 0.75, 0.25, 1) 180ms both; }
+
+/* Entrance uses transform; the idle/spin animations independently own rotate. */
+@keyframes wheel-enter {
+  0% { transform: perspective(1400px) translateY(200px) rotateY(-40deg) scale(0.8); opacity: 0; }
+  75% { transform: perspective(1400px) translateY(-15px) rotateY(4deg) scale(1.02); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+
+@keyframes center-enter {
+  0% { scale: 0.6; opacity: 0; }
+  75% { scale: 1.045; opacity: 1; }
+  100% { scale: 1; opacity: 1; }
+}
+.center-enter { animation: center-enter 460ms cubic-bezier(0.16, 0.8, 0.25, 1) 300ms both; }
+
+/* Expose the hit area once the center artwork is visible, during its entrance. */
+@keyframes spin-hit-ready {
+  from, to { visibility: visible; }
+}
+.spin-hit-area {
+  visibility: hidden;
+  animation: spin-hit-ready 1ms linear 550ms forwards;
+}
+
+@keyframes cta-hit-ready {
+  from, to { visibility: visible; }
+}
+.cta-hit-area {
+  visibility: hidden;
+  animation: cta-hit-ready 1ms linear 780ms forwards;
+}
+
+@keyframes cta-enter {
+  0% { transform: translateY(100px) skewX(-12deg); opacity: 0; }
+  75% { transform: translateY(-6px); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+.cta-enter.animate-scale-pulse {
+  animation:
+    cta-enter 600ms cubic-bezier(0.2, 0.75, 0.25, 1) 540ms both,
+    scale-pulse 1.6s ease-in-out 1140ms infinite;
+}
+
+/* Preserve the cue's duration while showing a still result for reduced motion. */
+@keyframes wheel-spin-reduced {
+  from, to { rotate: var(--spin-to); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .benefit-enter, .result-shade { animation: none; }
+  .result-confetti { animation: none; opacity: 0; }
+  .scene-entrance {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    scale: 1;
+    clip-path: none;
+  }
+  .animate-scale-pulse, .cta-enter.animate-scale-pulse, .wheel-idle, .wheel-retry-idle { animation: none; }
+  .wheel-retry-idle { rotate: var(--spin-to); }
+  .sale-title-enter, .kit-card-enter, .kit-title-enter, .discount-enter { animation: none; }
+  .wheel-spinning { animation: wheel-spin-reduced var(--wheel-spin-duration) linear both; }
+  .spin-hit-area, .cta-hit-area { visibility: visible; }
+  .hand-click { animation: none; opacity: 0; }
+  .hand-exit { animation: none; opacity: 0; }
+  .winning-title { animation: none; opacity: 1; transform: none; scale: 1; }
+}
+
+.end-scene-fade {
+  opacity: 0;
+  transition: opacity 500ms ease-out;
+}
+.end-scene-fade.is-visible { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .result-logo-enter, .offer-cta-enter.animate-scale-pulse {
+    animation: benefit-enter 300ms ease-out both;
+    transform: none;
+    scale: 1;
+    will-change: opacity;
+  }
+  .end-scene-fade { transition: none; }
+}

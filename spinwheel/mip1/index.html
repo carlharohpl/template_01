@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en" class="h-dvh overscroll-none bg-[#292929]">
+  <head>
+    <!-- Reserved filename: some ad networks' WebViews intercept this request
+         locally and inject their real MRAID bridge instead of letting it hit
+         the network. Must stay the first script tag. In a plain browser (or
+         a network that doesn't use this convention) it just 404s harmlessly
+         and window.mraid stays undefined — openClickthrough already handles
+         that with a guarded no-op. -->
+    <script src="mraid.js"></script>
+    <script>
+      (function () {
+        let mraidIsReady = false;
+        let mraidReadyListenerAttached = false;
+
+        function trackMraidReadiness(mraid) {
+          if (
+            mraidReadyListenerAttached ||
+            !mraid ||
+            typeof mraid.addEventListener !== "function"
+          ) {
+            return;
+          }
+
+          try {
+            mraid.addEventListener("ready", function () {
+              mraidIsReady = true;
+            });
+            mraidReadyListenerAttached = true;
+          } catch (error) {
+            // getState() remains the primary readiness check.
+          }
+        }
+
+        window.isMraidUsable = function (mraid) {
+          if (!mraid) {
+            return false;
+          }
+
+          trackMraidReadiness(mraid);
+          if (typeof mraid.getState !== "function") {
+            return true;
+          }
+
+          try {
+            const state = mraid.getState();
+            return state === "default" || state === "expanded";
+          } catch (error) {
+            return mraidIsReady;
+          }
+        };
+      })();
+    </script>
+    <script>
+      (function () {
+        window.__mip = window.__mip || {};
+
+        // AppLovin loading-state guard, in the exact if/else shape the
+        // validator scans for. Must stay here (raw inline script) — see
+        // CLAUDE.md for why this can't live in bundled JS.
+        window.__mip.ready = function (callback) {
+          if (typeof mraid === "undefined") {
+            callback();
+          } else if (mraid.getState() === "loading") {
+            mraid.addEventListener("ready", callback);
+          } else {
+            callback();
+          }
+        };
+
+        // Click-through: resolve the standard click-tag variables, use
+        // mraid.open() only when MRAID is usable.
+        window.__mip.openClickthrough = function () {
+          var mraid = window.mraid || {};
+          var clickTarget =
+            window.clickTag ||
+            window.clickTag1 ||
+            window.clickthrough ||
+            window.clickThrough ||
+            "";
+
+          if (
+            typeof mraid.open === "function" &&
+            typeof window.isMraidUsable === "function" &&
+            window.isMraidUsable(mraid)
+          ) {
+            try {
+              if (clickTarget) {
+                mraid.open(clickTarget);
+              } else {
+                mraid.open();
+              }
+              return;
+            } catch (error) {
+              console.error("MRAID click-through failed", error);
+            }
+          }
+        };
+      })();
+    </script>
+    <script>
+      (function () {
+        window.__mip = window.__mip || {};
+
+        var mraidViewable = true;
+
+        function syncMediaState() {
+          var media = document.querySelectorAll("video, audio");
+          media.forEach(function (element) {
+            if (!mraidViewable) {
+              element.pause();
+            } else if (element.tagName === "VIDEO" && element.autoplay) {
+              element.play().catch(function () {});
+            }
+          });
+        }
+
+        // AppLovin MIP: pause/resume real <video>/<audio> elements based on
+        // MRAID viewability. Call from init() before starting media
+        // playback. Must stay here (raw inline script), not bundled JS —
+        // same reason as window.__mip.ready/openClickthrough above.
+        window.__mip.setupMediaViewability = function () {
+          var mraid = window.mraid;
+          if (!mraid) return;
+
+          function handleViewableChange(viewable) {
+            mraidViewable = Boolean(viewable);
+            syncMediaState();
+          }
+
+          if (typeof mraid.isViewable === "function") {
+            try {
+              mraidViewable = Boolean(mraid.isViewable());
+            } catch (error) {
+              mraidViewable = true;
+            }
+          }
+
+          if (typeof mraid.addEventListener === "function") {
+            mraid.addEventListener("viewableChange", handleViewableChange);
+          }
+        };
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <link rel="icon" href="data:," />
+    <title>Prose</title>
+  </head>
+
+  <body class="m-0 h-dvh overscroll-none bg-[#292929]">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
