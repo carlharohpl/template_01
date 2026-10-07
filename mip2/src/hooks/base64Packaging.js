@@ -83,6 +83,9 @@ function inspectJs(code, label, inspectString) {
     }
     if (node.type === 'CallExpression' || node.type === 'NewExpression') {
       const callee = memberPath(node.callee);
+      if (/(?:^|\.)mraid\.open$/.test(callee) && node.arguments.length === 0) {
+        fail(`${label}: MRAID click-through requires a clickTarget argument`);
+      }
       if (/(?:^|\.)(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|Worker|SharedWorker|importScripts)$/.test(callee) || /serviceWorker\.register$/.test(callee)) {
         fail(`${label}: runtime external-resource API ${callee} is forbidden`);
       }
@@ -184,7 +187,7 @@ export function validateHtml(html, { label = 'creative', main = false, documents
   });
   if (main) {
     if (scripts[0]?.attrs.find(attr => attr.name === 'src')?.value !== 'mraid.js') fail(`${label}: mraid.js must remain the first script`);
-    for (const required of ['window.__mip.openClickthrough = function', 'window.isMraidUsable(mraid)', 'mraid.open(clickTarget)', 'mraid.open()', 'mraid.getState() === "loading"']) {
+    for (const required of ['window.__mip.openClickthrough = function handleMraidOpen()', 'window.isMraidUsable(mraid)', 'mraid.open(clickTarget)', 'mraid.getState() === "loading"']) {
       if (!html.includes(required)) fail(`${label}: required raw MRAID implementation missing: ${required}`);
     }
   }

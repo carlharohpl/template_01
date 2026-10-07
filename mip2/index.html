@@ -69,8 +69,8 @@
         };
 
         // Click-through: resolve the standard click-tag variables and use
-        // mraid.open() only when MRAID is usable.
-        window.__mip.openClickthrough = function () {
+        // mraid.open(clickTarget) only when MRAID and the target are usable.
+        window.__mip.openClickthrough = function handleMraidOpen() {
           var mraid = window.mraid || {};
           var clickTarget =
             window.clickTag ||
@@ -79,17 +79,17 @@
             window.clickThrough ||
             "";
 
+          if (typeof clickTarget !== "string" || !clickTarget.trim()) {
+            return;
+          }
+
           if (
             typeof mraid.open === "function" &&
             typeof window.isMraidUsable === "function" &&
             window.isMraidUsable(mraid)
           ) {
             try {
-              if (clickTarget) {
-                mraid.open(clickTarget);
-              } else {
-                mraid.open();
-              }
+              mraid.open(clickTarget);
               return;
             } catch (error) {
               console.error("mraid.open failed", error);
