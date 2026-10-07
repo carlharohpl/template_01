@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
+import { base64Packaging } from "./src/hooks/base64Packaging.js";
 
 // Local servers have no ad-network bridge; keep this fallback out of builds.
 function localMraidFallback() {
@@ -32,9 +33,10 @@ function localMraidFallback() {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [localMraidFallback(), react(), tailwindcss(), viteSingleFile()],
+  plugins: [localMraidFallback(), react(), tailwindcss(), viteSingleFile({ removeViteModuleLoader: true }), base64Packaging()],
   build: {
-    assetsInlineLimit: 1024 * 1024,
+    assetsInlineLimit: () => true,
+    modulePreload: false,
   },
   server: {
     host: true,
