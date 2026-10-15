@@ -61,14 +61,25 @@ function property(node) {
   return node?.computed ? node.property?.value : node?.property?.name;
 }
 
-function inspectJs(code, label, inspectString) {
+function inspectJs(code, label, inspectString, inlineHandler = false) {
   checkNavigation(code, label);
   let tree;
-  try { tree = parseJs(code, { sourceType: 'unambiguous', plugins: ['jsx'] }); }
+  try { tree = parseJs(code, { sourceType: 'unambiguous', plugins: ['jsx'], allowReturnOutsideFunction: inlineHandler }); }
   catch (error) { fail(`${label}: cannot validate JavaScript: ${error.message}`); }
+  // Navigation destinations are not media requests. Preserve supplied URL
+  // literals in MRAID arguments and the existing click-target chain.
+  const destinations = new WeakSet();
+  const markDestination = node => {
+    if (node?.type === 'StringLiteral' || node?.type === 'TemplateElement') destinations.add(node);
+    if (node?.type === 'TemplateLiteral') node.quasis.forEach(markDestination);
+    if (node?.type === 'LogicalExpression') { markDestination(node.left); markDestination(node.right); }
+    if (node?.type === 'ConditionalExpression') { markDestination(node.consequent); markDestination(node.alternate); }
+  };
   walk(tree, node => {
-    if (node.type === 'StringLiteral') inspectString(node.value, node);
-    if (node.type === 'TemplateElement') inspectString(node.value.cooked ?? node.value.raw, node);
+    if (node.type === 'AssignmentExpression' && /^(?:(?:window|self|globalThis)\.)?(?:clickTag|clickTag1|clickthrough|clickThrough|clickTarget)$/.test(memberPath(node.left))) markDestination(node.right);
+    if (node.type === 'VariableDeclarator' && /^(?:clickTag|clickTag1|clickthrough|clickThrough|clickTarget)$/.test(node.id?.name)) markDestination(node.init);
+    if (node.type === 'StringLiteral') inspectString(node.value, node, destinations.has(node));
+    if (node.type === 'TemplateElement') inspectString(node.value.cooked ?? node.value.raw, node, destinations.has(node));
     if (node.type === 'ImportDeclaration' && /\.html?(?:\?|$)/i.test(node.source.value) && !node.source.value.endsWith('?endcard')) {
       fail(`${label}: raw embedded HTML import; use .html?endcard for build-time encoding`);
     }
@@ -83,6 +94,7 @@ function inspectJs(code, label, inspectString) {
     }
     if (node.type === 'CallExpression' || node.type === 'NewExpression') {
       const callee = memberPath(node.callee);
+      if (/(?:^|\.)mraid\.open$/.test(callee)) markDestination(node.arguments[0]);
       if (/(?:^|\.)mraid\.open$/.test(callee) && node.arguments.length === 0) {
         fail(`${label}: MRAID click-through requires a clickTarget argument`);
       }
@@ -122,11 +134,11 @@ function dataReference(value, label, documents, depth) {
   }
 }
 
-function inspectValue(value, label, documents, depth) {
+function inspectValue(value, label, documents, depth, destination = false) {
   checkNavigation(value, label);
   if (htmlDocument.test(value)) fail(`${label}: raw embedded HTML document; use .html?endcard`);
   if (value.startsWith('data:')) dataReference(value, label, documents, depth);
-  else if (mediaExtension.test(value) || (/^(?:https?:|wss?:|\/\/)/i.test(value) && !namespaces.has(value))) {
+  else if (!destination && (mediaExtension.test(value) || (/^(?:https?:|wss?:|\/\/)/i.test(value) && !namespaces.has(value)))) {
     // React includes non-resource diagnostic links; resource attributes are checked separately.
     if (!value.startsWith('https://react.dev/errors/')) fail(`${label}: non-inlined resource ${value.slice(0, 120)}`);
   }
@@ -155,7 +167,7 @@ export function validateHtml(html, { label = 'creative', main = false, documents
       if (attrs.src && attrs.src !== 'mraid.js') fail(`${label}: script must be inlined: ${attrs.src}`);
       const code = node.childNodes?.map(child => child.value || '').join('') || '';
       if (!attrs.type || /^(?:module|(?:text|application)\/javascript)$/.test(attrs.type)) {
-        if (code.trim()) inspectJs(code, label, value => inspectValue(value, label, documents, depth));
+        if (code.trim()) inspectJs(code, label, (value, _node, destination) => inspectValue(value, label, documents, depth, destination));
       } else if (code.trim()) {
         try { JSON.parse(code, (_key, value) => { if (typeof value === 'string') inspectValue(value, label, documents, depth); return value; }); }
         catch { fail(`${label}: unsupported script payload`); }
@@ -166,7 +178,7 @@ export function validateHtml(html, { label = 'creative', main = false, documents
     for (const [name, value] of Object.entries(attrs)) {
       if (name === 'srcdoc') fail(`${label}: raw embedded HTML srcdoc; decode a build-time end-card import at runtime`);
       if (name === 'style') validateCss(value, label, documents, depth);
-      if (name.startsWith('on')) inspectJs(value, label, item => inspectValue(item, label, documents, depth));
+      if (name.startsWith('on')) inspectJs(value, label, (item, _node, destination) => inspectValue(item, label, documents, depth, destination), true);
       if (['src', 'href', 'xlink:href', 'poster', 'data', 'action', 'formaction', 'background'].includes(name)) {
         if (node.tagName === 'script' && name === 'src' && value === 'mraid.js') continue;
         if (value.startsWith('#')) continue;
@@ -221,12 +233,64 @@ function base64SvgUrls(text) {
     .replace(/data:image\/svg\+xml,[^\s)"'<>]+/gi, convert);
 }
 
+// Compatibility changes apply only to imported end cards, before inspection.
+// Edit source ranges rather than reserializing the document or replacing text
+// inside JavaScript strings/comments. Never write these changes back to disk.
+function compatibleEndCard(source, label) {
+  const edits = [];
+  const correctCalls = (code, inlineHandler = false) => {
+    let tree;
+    try {
+      tree = parseJs(code, { sourceType: 'unambiguous', allowReturnOutsideFunction: inlineHandler });
+    } catch (error) {
+      fail(`${label}: cannot parse end-card JavaScript: ${error.message}`);
+    }
+    const calls = [];
+    walk(tree, node => {
+      if (node.type === 'CallExpression' && /(?:^|\.)mraid\.open$/.test(memberPath(node.callee)) && node.arguments.length === 0) {
+        calls.push({ start: node.end - 1, end: node.end - 1, value: '""' });
+      }
+    });
+    return editsTo(code, calls);
+  };
+  walk(parseHtml(source, { sourceCodeLocationInfo: true }), node => {
+    if (!node.tagName) return;
+    const location = node.sourceCodeLocation;
+    if (node.tagName === 'source' && node.parentNode?.tagName === 'video') {
+      const emptySrc = node.attrs.find(attr => attr.name === 'src' && attr.value === '');
+      const range = location?.attrs?.src;
+      if (emptySrc && range) edits.push({ start: range.startOffset, end: range.endOffset, value: '' });
+    }
+    if (node.tagName === 'script' && location?.endTag) {
+      const attrs = Object.fromEntries(node.attrs.map(attr => [attr.name, attr.value]));
+      if (!Object.hasOwn(attrs, 'src') && (!attrs.type || /^(?:module|(?:text|application)\/javascript)$/.test(attrs.type))) {
+        const start = location.startTag.endOffset;
+        const end = location.endTag.startOffset;
+        const code = source.slice(start, end);
+        const corrected = correctCalls(code);
+        if (corrected !== code) edits.push({ start, end, value: corrected });
+      }
+    }
+    for (const attr of node.attrs) {
+      if (!attr.name.startsWith('on')) continue;
+      const range = location?.attrs?.[attr.name];
+      if (!range) continue;
+      const corrected = correctCalls(attr.value, true);
+      if (corrected !== attr.value) {
+        const encoded = corrected.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
+        edits.push({ start: range.startOffset, end: range.endOffset, value: `${attr.name}="${encoded}"` });
+      }
+    }
+  });
+  return editsTo(source, edits);
+}
+
 // Usage: import endCardHtml from './endcard.html?endcard';
 // Feed endCardHtml to the existing iframe's srcDoc. The generated module holds
 // only Base64 and decodes UTF-8 at runtime; the source document stays editable.
 export async function packageEndCard(file, watch = () => {}) {
   watch(file);
-  const source = await fs.readFile(file, 'utf8');
+  const source = compatibleEndCard(await fs.readFile(file, 'utf8'), file);
   const edits = [];
   const pending = [];
   const local = value => {
@@ -242,8 +306,8 @@ export async function packageEndCard(file, watch = () => {}) {
       const scriptType = node.attrs.find(attr => attr.name === 'type')?.value;
       if (location?.endTag && (!scriptType || /^(?:module|(?:text|application)\/javascript)$/.test(scriptType))) {
         const script = source.slice(location.startTag.endOffset, location.endTag.startOffset);
-        inspectJs(script, file, (value, literal) => {
-          if (!value.startsWith('data:') && mediaExtension.test(value)) {
+        inspectJs(script, file, (value, literal, destination) => {
+          if (!destination && !value.startsWith('data:') && mediaExtension.test(value)) {
             if (literal.type !== 'StringLiteral') fail(`${file}: use a static string for end-card media references`);
             pending.push(inlineUrl(value).then(url => edits.push({ start: location.startTag.endOffset + literal.start, end: location.startTag.endOffset + literal.end, value: JSON.stringify(url) })));
           }

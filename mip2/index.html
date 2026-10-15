@@ -69,7 +69,7 @@
         };
 
         // Click-through: resolve the standard click-tag variables and use
-        // mraid.open(clickTarget) only when MRAID and the target are usable.
+        // mraid.open(clickTarget) accepts any string, including an empty target.
         window.__mip.openClickthrough = function handleMraidOpen() {
           var mraid = window.mraid || {};
           var clickTarget =
@@ -79,7 +79,7 @@
             window.clickThrough ||
             "";
 
-          if (typeof clickTarget !== "string" || !clickTarget.trim()) {
+          if (typeof clickTarget !== "string") {
             return;
           }
 
