@@ -10,15 +10,13 @@ export const openClickthrough = () => {
   window.__mip.openClickthrough();
 };
 
-export const Cta = ({ className = "" }) => (
+export const Cta = () => (
   <button
     type="button"
-    className={className}
+    aria-label="Open offer"
     onClick={(event) => {
       event.stopPropagation();
       openClickthrough();
     }}
-  >
-    Shop Now
-  </button>
+  />
 );

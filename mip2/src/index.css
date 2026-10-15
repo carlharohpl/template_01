@@ -6,10 +6,23 @@
     scale: 1;
   }
   50% {
-    scale: 1.12;
+    scale: 1.2;
   }
 }
 
 .animate-scale-pulse {
   animation: scale-pulse 1.6s ease-in-out infinite;
+}
+
+.scene-inactive .animate-scale-pulse {
+  animation-play-state: paused;
+}
+
+.end-scene-fade {
+  opacity: 0;
+  transition: opacity 500ms ease-out;
+}
+
+.end-scene-fade.is-visible {
+  opacity: 1;
 }

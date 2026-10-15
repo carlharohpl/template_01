@@ -169,8 +169,22 @@ export function validateHtml(html, { label = 'creative', main = false, documents
       if (!attrs.type || /^(?:module|(?:text|application)\/javascript)$/.test(attrs.type)) {
         if (code.trim()) inspectJs(code, label, (value, _node, destination) => inspectValue(value, label, documents, depth, destination));
       } else if (code.trim()) {
-        try { JSON.parse(code, (_key, value) => { if (typeof value === 'string') inspectValue(value, label, documents, depth); return value; }); }
+        let payload;
+        try { payload = JSON.parse(code); }
         catch { fail(`${label}: unsupported script payload`); }
+        const inspectJson = (value, field = '') => {
+          if (typeof value === 'string') {
+            // SIP builder labels describe the original uploaded files; they
+            // are not runtime resource URLs. Actual assets remain validated.
+            const fileLabel = attrs.id === 'sip-builder-config' && attrs.type === 'application/json'
+              && /^(?:videos\.(?:portrait|landscape)\.name|dynamicTexts\.\d+\.font\.fileName)$/.test(field)
+              && !/[\\/:]/.test(value) && mediaExtension.test(value);
+            inspectValue(value, `${label} (${field})`, documents, depth, fileLabel);
+          } else if (value && typeof value === 'object') {
+            for (const [key, item] of Object.entries(value)) inspectJson(item, field ? `${field}.${key}` : key);
+          }
+        };
+        inspectJson(payload);
       }
     }
     if (node.tagName === 'base' || (node.tagName === 'meta' && attrs['http-equiv']?.toLowerCase() === 'refresh')) fail(`${label}: base/refresh navigation is forbidden`);
