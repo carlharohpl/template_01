@@ -40,6 +40,31 @@ export function readCalendarSearch() {
   return "";
 }
 
+function readAppLovinPreviewSearch() {
+  try {
+    if (typeof window === "undefined" || window.parent === window) return null;
+    const preview = window.parent;
+    const url = new URL(preview.location.href);
+    if (!/^https:$/.test(url.protocol) || url.hostname !== "playable.applovindemo.com" ||
+      !/^\/Preview\/(?:index\.html|mobilePreview\.html)?$/i.test(url.pathname) ||
+      window.location.origin !== url.origin || !window.location.pathname.startsWith("/phaser/")) {
+      return null;
+    }
+
+    // Explicit creative parameters win. Preserve every existing date value,
+    // including invalid/empty values that must keep normal fallback behavior.
+    if (new URLSearchParams(window.location.search).has("date")) return window.location.search;
+    if (!url.searchParams.has("date")) {
+      url.searchParams.set("date", localDateKey(new Date()));
+      preview.history.replaceState(preview.history.state, "", url.href);
+    }
+    return url.search;
+  } catch {
+    // Restricted hosts/history access must never block the creative.
+    return null;
+  }
+}
+
 function sharedCalendarClock() {
   // Trusted same-origin end cards that bundle this module reuse the actual
   // parent clock, even if the parent's URL changes after initial loading.
@@ -53,7 +78,7 @@ function sharedCalendarClock() {
   } catch {
     // No parent access: use this document's explicitly supplied parameter.
   }
-  return createCalendarClock(readCalendarSearch());
+  return createCalendarClock(readAppLovinPreviewSearch() ?? readCalendarSearch());
 }
 
 // Evaluated once, before the React tree renders. Do not recreate on scene entry.
