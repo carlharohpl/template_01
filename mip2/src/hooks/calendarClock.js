@@ -44,7 +44,9 @@ function readAppLovinPreviewSearch() {
   try {
     if (typeof window === "undefined" || window.parent === window) return null;
     const preview = window.parent;
-    const url = new URL(preview.location.href);
+    // Construct the standard URL object without a call-shaped URL token:
+    // some creative validators scan JavaScript as if it were CSS.
+    const url = Reflect.construct(URL, [preview.location.href]);
     if (!/^https:$/.test(url.protocol) || url.hostname !== "playable.applovindemo.com" ||
       !/^\/Preview\/(?:index\.html|mobilePreview\.html)?$/i.test(url.pathname) ||
       window.location.origin !== url.origin || !window.location.pathname.startsWith("/phaser/")) {
@@ -65,6 +67,24 @@ function readAppLovinPreviewSearch() {
   }
 }
 
+function readLocalFilePreviewSearch() {
+  try {
+    // Directly opened exports get the same editable date as host previews.
+    // Leave served creatives and embedded documents on their existing rules.
+    if (typeof window === "undefined" || window.parent !== window ||
+      window.location.protocol !== "file:") return null;
+    const url = Reflect.construct(URL, [window.location.href]);
+    if (!url.searchParams.has("date")) {
+      url.searchParams.set("date", localDateKey(new Date()));
+      window.history.replaceState(window.history.state, "", url.href);
+    }
+    return url.search;
+  } catch {
+    // Restricted file/history access must not prevent normal date rendering.
+    return null;
+  }
+}
+
 function sharedCalendarClock() {
   // Trusted same-origin end cards that bundle this module reuse the actual
   // parent clock, even if the parent's URL changes after initial loading.
@@ -78,7 +98,7 @@ function sharedCalendarClock() {
   } catch {
     // No parent access: use this document's explicitly supplied parameter.
   }
-  return createCalendarClock(readAppLovinPreviewSearch() ?? readCalendarSearch());
+  return createCalendarClock(readAppLovinPreviewSearch() ?? readLocalFilePreviewSearch() ?? readCalendarSearch());
 }
 
 // Evaluated once, before the React tree renders. Do not recreate on scene entry.

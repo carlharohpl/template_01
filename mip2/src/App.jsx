@@ -15,7 +15,8 @@ const App = () => {
           <div
             ref={appRef}
             className="absolute left-0 top-0 h-[1920px] w-[1080px] origin-top-left scale-[var(--ui-scale,1)] flex flex-col justify-between overflow-visible pt-8 pb-15"
-          ></div>
+          >
+          </div>
         </div>
       </div>
     </main>

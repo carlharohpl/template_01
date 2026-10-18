@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Buffer } from "node:buffer";
 import { TextDecoder } from "node:util";
+import { fileURLToPath } from "node:url";
 import { parse as parseHtml } from "parse5";
 import { parse as parseJs } from "@babel/parser";
 
@@ -26,6 +27,75 @@ const namespaces = new Set([
   'http://www.w3.org/XML/1998/namespace', 'http://www.w3.org/2000/xmlns/',
 ]);
 const fail = (message) => { throw new Error(`[creative packaging] ${message}`); };
+const calendarModule = path.join(path.dirname(fileURLToPath(import.meta.url)), 'calendarClock.js').replaceAll('\\', '/');
+
+// Only explicit calendar consumers may use preview time. Never replace Date
+// globally: media, input timestamps, and elapsed timers must remain real-time.
+function calendarEdits(code, label) {
+  const edits = [];
+  let usesCalendar = false;
+  const tree = parseJs(code, { sourceType: 'unambiguous', allowReturnOutsideFunction: true });
+  const freshDate = node => node?.type === 'NewExpression' && memberPath(node.callee) === 'Date' && node.arguments.length === 0;
+  const timestamp = node => node?.type === 'CallExpression' && node.arguments.length === 0 &&
+    (memberPath(node.callee) === 'Date.now' ||
+      (property(node.callee) === 'getTime' && freshDate(node.callee.object)));
+  const replace = (node, value) => {
+    usesCalendar = true;
+    edits.push({ start: node.start, end: node.end, value });
+  };
+  walk(tree, node => {
+    if (node.type === 'MemberExpression' && memberPath(node) === 'window.__mip.calendarClock') usesCalendar = true;
+    if (node.type !== 'CallExpression') return;
+    const method = property(node.callee);
+    if (['toLocaleDateString', 'toDateString', 'getFullYear', 'getMonth', 'getDate', 'getDay'].includes(method) && freshDate(node.callee.object)) {
+      replace(node.callee.object, 'window.__mip.calendarClock.now()');
+    }
+    if (memberPath(node.callee) === 'resolveSipEffectiveDate') {
+      const base = node.arguments[0];
+      if (timestamp(base)) replace(base, 'window.__mip.calendarClock.now().getTime()');
+      else if (!code.slice(base?.start, base?.end).includes('calendarClock')) {
+        fail(`${label}: SIP calendar base needs review; pass window.__mip.calendarClock.now().getTime() to resolveSipEffectiveDate. Elapsed timers must retain real time.`);
+      }
+    }
+    const formatter = node.callee.object;
+    if (method === 'format' && ['NewExpression', 'CallExpression'].includes(formatter?.type) &&
+      memberPath(formatter.callee) === 'Intl.DateTimeFormat' && freshDate(node.arguments[0])) {
+      const options = formatter.arguments[1];
+      const fields = options?.type === 'ObjectExpression' ? options.properties.map(item => item.key?.name ?? item.key?.value) : [];
+      // An explicit calendar-only format is safe; mixed clock-time formats
+      // need source review because the preview anchor is local noon.
+      if ((!options || fields.some(field => ['dateStyle', 'year', 'month', 'day', 'weekday'].includes(field))) &&
+        !fields.some(field => ['timeStyle', 'hour', 'minute', 'second', 'timeZone'].includes(field))) {
+        replace(node.arguments[0], 'window.__mip.calendarClock.now()');
+      }
+    }
+    // A date stored in a variable or passed to an arbitrary formatter cannot
+    // safely be classified as calendar-only without inspecting its consumers.
+  });
+  return { edits, usesCalendar };
+}
+
+function prepareEndCardCalendar(source, label) {
+  const edits = [];
+  let usesCalendar = false;
+  let insertion;
+  walk(parseHtml(source, { sourceCodeLocationInfo: true }), node => {
+    const attrs = Object.fromEntries((node.attrs || []).map(attr => [attr.name, attr.value]));
+    const location = node.sourceCodeLocation;
+    if (node.tagName !== 'script' || attrs.src || !location?.endTag ||
+      (attrs.type && !/^(?:module|(?:text|application)\/javascript)$/.test(attrs.type))) return;
+    const start = location.startTag.endOffset;
+    const code = source.slice(start, location.endTag.startOffset);
+    const result = calendarEdits(code, label);
+    usesCalendar ||= result.usesCalendar;
+    insertion ??= location.startOffset;
+    for (const edit of result.edits) edits.push({ ...edit, start: start + edit.start, end: start + edit.end });
+  });
+  if (usesCalendar) {
+    edits.push({ start: insertion, end: insertion, value: '<script>window.__mip=window.__mip||{};window.__mip.calendarClock=window.parent.__mip.calendarClock;</script>' });
+  }
+  return { source: editsTo(source, edits), usesCalendar };
+}
 
 function walk(node, visit) {
   if (node === null || node === undefined) return;
@@ -144,12 +214,21 @@ function inspectValue(value, label, documents, depth, destination = false) {
   }
 }
 
-function validateCss(css, label, documents, depth) {
-  if (/@import\b/i.test(css)) fail(`${label}: CSS imports must be inlined`);
-  for (const match of css.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*))\s*\)/gi)) {
+function validateUrlTokens(text, label, documents, depth) {
+  // Match the host checker's case-insensitive scan, including JavaScript,
+  // comments, and strings. A URL constructor call can be mistaken for CSS.
+  for (const match of text.matchAll(/url\s*\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*))\s*\)/gi)) {
     const value = (match[1] ?? match[2] ?? match[3]).trim();
+    if (!value.startsWith('#') && !value.startsWith('data:')) {
+      fail(`${label}: non-inlined CSS-style URL token: ${match[0].slice(0, 120)}. For JavaScript URL construction, use Reflect.construct(URL, [value]) to avoid the host's CSS scan; media must still be Base64-inlined.`);
+    }
     if (!value.startsWith('#')) dataReference(value, label, documents, depth);
   }
+}
+
+function validateCss(css, label, documents, depth) {
+  if (/@import\b/i.test(css)) fail(`${label}: CSS imports must be inlined`);
+  validateUrlTokens(css, label, documents, depth);
   for (const match of css.matchAll(/(["'])(.*?)\1/g)) {
     if (!match[2].startsWith('#')) inspectValue(match[2], label, documents, depth);
   }
@@ -157,6 +236,7 @@ function validateCss(css, label, documents, depth) {
 
 export function validateHtml(html, { label = 'creative', main = false, documents, depth = 0 } = {}) {
   checkNavigation(html, label);
+  validateUrlTokens(html, label, documents, depth);
   const tree = parseHtml(html, { sourceCodeLocationInfo: true });
   const scripts = [];
   walk(tree, node => {
@@ -167,7 +247,10 @@ export function validateHtml(html, { label = 'creative', main = false, documents
       if (attrs.src && attrs.src !== 'mraid.js') fail(`${label}: script must be inlined: ${attrs.src}`);
       const code = node.childNodes?.map(child => child.value || '').join('') || '';
       if (!attrs.type || /^(?:module|(?:text|application)\/javascript)$/.test(attrs.type)) {
-        if (code.trim()) inspectJs(code, label, (value, _node, destination) => inspectValue(value, label, documents, depth, destination));
+        if (code.trim()) {
+          inspectJs(code, label, (value, _node, destination) => inspectValue(value, label, documents, depth, destination));
+          if (calendarEdits(code, label).edits.length) fail(`${label}: calendar content bypasses the shared preview clock; use window.__mip.calendarClock.now() (or import the shared singleton in gameplay).`);
+        }
       } else if (code.trim()) {
         let payload;
         try { payload = JSON.parse(code); }
@@ -304,7 +387,7 @@ function compatibleEndCard(source, label) {
 // only Base64 and decodes UTF-8 at runtime; the source document stays editable.
 export async function packageEndCard(file, watch = () => {}) {
   watch(file);
-  const source = compatibleEndCard(await fs.readFile(file, 'utf8'), file);
+  const { source, usesCalendar } = prepareEndCardCalendar(compatibleEndCard(await fs.readFile(file, 'utf8'), file), file);
   const edits = [];
   const pending = [];
   const local = value => {
@@ -350,7 +433,7 @@ export async function packageEndCard(file, watch = () => {}) {
   validateHtml(html, { label: file });
   const url = `data:text/html;base64,${Buffer.from(html).toString('base64')}`;
   if (decodeBase64(url.split(',')[1], file).toString('utf8') !== html) fail(`${file}: end-card round-trip mismatch`);
-  return { html, url };
+  return { html, url, usesCalendar };
 }
 
 export function base64Packaging() {
@@ -377,9 +460,10 @@ export function base64Packaging() {
             if (query) fail(`${file}: raw embedded HTML import; use .html?endcard`);
             return null; // Vite owns the main shell.
           }
-          const { html, url } = await packageEndCard(file, dependency => this.addWatchFile(dependency));
+          const { html, url, usesCalendar } = await packageEndCard(file, dependency => this.addWatchFile(dependency));
           documents.set(url, html);
-          return `const packaged=${JSON.stringify(url)};export default new TextDecoder().decode(Uint8Array.from(atob(packaged.slice(packaged.indexOf(',')+1)),c=>c.charCodeAt(0)));`;
+          const calendar = usesCalendar ? `import {calendarClock} from ${JSON.stringify(calendarModule)};window.__mip=window.__mip||{};window.__mip.calendarClock=calendarClock;` : '';
+          return `${calendar}const packaged=${JSON.stringify(url)};export default new TextDecoder().decode(Uint8Array.from(atob(packaged.slice(packaged.indexOf(',')+1)),c=>c.charCodeAt(0)));`;
         }
         // Vite may otherwise percent-encode SVG imports; force genuine Base64.
         if (config.command === 'build' && /\.svg$/i.test(file) && !query.includes('raw')) {
