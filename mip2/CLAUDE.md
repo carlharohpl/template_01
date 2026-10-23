@@ -247,13 +247,13 @@ Implement the supplied type in existing `src/components/endscene.jsx`, not a dup
 - Never replace global Date/Date.now or override animations, elapsed time, debounce/click/analytics timestamps, video/lifecycle scheduling, countdown/count-up timers. Timer preview needs separate authorization.
 - Normal views use subscribeCalendarClock with cleanup. Refresh local midnight and focus/pageshow/visibility/resume, including supported MRAID viewability. Next midnight uses REAL device time/DST, not preview/offer offset. Preview has no midnight timers; avoid duplicate subscriptions.
 
-### Automatic AppLovin and local-file previews
+### Automatic AppLovin, localhost, and local-file previews
 
 - Retain readAppLovinPreviewSearch: accessible immediate HTTPS parent exactly `playable.applovindemo.com`; path `/Preview/`, `/Preview/index.html`, or `/Preview/mobilePreview.html` (case-insensitive); same-origin child path starts `/phaser/`.
 - Explicit creative date wins/prevents parent insertion. Otherwise preserve parent dates including invalid/empty/duplicates; unrelated child parameters must not hide them. If absent in both, set today's LOCAL key with `url.searchParams.set("date", localDateKey(new Date()))` and `parent.history.replaceState(parent.history.state, "", url.href)`; initialize from resulting search.
-- Retain readLocalFilePreviewSearch: active module, `window.parent === window`, protocol file:; add today's local date to own URL ONLY if missing via own history.replaceState. Runs at runtime in exported HTML, not a date baked into the build.
+- **STRICTLY REQUIRED - automatic local previews:** retain `readLocalPreviewSearch()` in `calendarClock.js`. When calendar content activates the module and `window.parent === window`, allow `file:` or HTTP/HTTPS with hostname exactly `localhost`, `127.0.0.1`, or `[::1]` (any port). Add today's LOCAL `date=YYYY-MM-DD` only when absent, using safe URL construction and `history.replaceState(history.state, "", url.href)`. For example, `http://localhost:5173/` gains today's date automatically. Preserve existing date values, other parameters, hash, and history state; no reload or navigation. This runs in development and exported HTML, never as a date baked into a build. If neither gameplay nor end cards need calendar content, DO NOT activate this feature or mutate the URL.
 - Browser URLs use `Reflect.construct(URL, [value])`. Preserve all existing date values, other parameter values, hash/history state, AppLovin thm/h/h2/h3/n/n2/n3. Standard serialization may normalize encoding/empty separators. No hardcoded/UTC date, reload/navigation/new history entry.
-- Catch blocked parent/history access, fall back without blocking creative. Never generalize mutation to localhost, ordinary HTTP/HTTPS standalone pages, embedded local files, unrelated hosts/paths/protocols, cross-origin parents, live ads.
+- Catch blocked parent/history access, fall back without blocking creative. Never generalize mutation beyond the explicit AppLovin, top-level local-file, and loopback-host scopes above: no LAN addresses, lookalike hostnames, ordinary remote HTTP/HTTPS pages, embedded local previews, unrelated hosts/protocols, cross-origin parents, or live ads.
 - Auto previews freeze today's date. Edit address bar then Enter/reload to apply a new date without overwriting it. Direct HTML uses `?date=2026-09-29`, existing query uses `&date=2026-09-29`. URL edits without reload do not recreate clock.
 
 ### End-card calendar integration and detection limits
@@ -271,7 +271,7 @@ Test dev AND actual exports with real supplied cards where present, at least two
 
 - Valid 2026-10-29, 2027-01-01, leap 2028-02-29. Invalid 2026-02-29, 2026-02-30, 2026-13-01, 2026-00-01, 2026-10-00, 2026-1-1, hello, empty. Absent, unrelated params, duplicates including invalid-first/valid-second.
 - Holiday boundaries/neighbors/defaults/overlaps, fixed-year nonrecurrence, offsets, mutation resistance, delayed mount, frozen until reload, midnight/resume/DST/cleanup.
-- AppLovin/actual top-level file insertion, manual reload, invalid/empty/duplicate preservation, child priority/unrelated queries, iteration params, hash/history, no repeated insertion, no mutation outside supported scope/blocked access.
+- AppLovin, localhost/loopback, and actual top-level file insertion; manual reload, invalid/empty/duplicate preservation, child priority/unrelated queries, iteration params, hash/history, no repeated insertion, and no mutation outside supported scope/blocked access. Verify local previews in development and served exports, including creatives without calendar content.
 - Gameplay-only, end-card-only, both, neither/timer-only builds. Clock before iframe, automatic preview without gameplay date import/UI, identical delayed-card date, preserved offsets/native timestamps, omitted unused module.
 - Unchanged gameplay/motion/input/audio/MRAID. Report unavailable hosts/devices; distinguish fixtures/local response substitution from actual supplied card/uploaded AppLovin creative. Inaccessible outer query alone is insufficient. Lint/rebuild affected exports; no development-only flag.
 
@@ -318,6 +318,6 @@ Removing a test CTA, Continue button, date display, end scene, or UI state/impor
 - Shared once-only log/synchronous MRAID; raw order/names/guards, exact target chain, explicit empty fallback, silent missing/loading and thrown-error handling.
 - CTA pulse/silence/ownership; end-scene parent bridge, full-screen overlay, readiness-gated 500ms fade/handoff/cleanup. Unwired endscene.jsx is allowed after reset; every future real card still follows these rules.
 - Node packaging, narrow in-memory compatibility/calendar preparation, metadata exceptions, safe URLs, decoded/outer/written-file validation, single-file Base64, exact size limits. Zero active card imports means zero packaged documents, NOT disabled validation.
-- Optional calendar source/AppLovin/file previews, uninitialized/unbundled when neither view has calendars.
+- Optional calendar source and AppLovin/localhost/local-file previews, uninitialized/unbundled when neither view has calendars. Removing demo UI MUST NOT remove `readLocalPreviewSearch()` or its loopback support.
 
 Delete supplied assets ONLY when requested. After demo removal verify retained helpers/rebuild affected exports under title rule. Do not claim removed UI was exercised; use temporary fixtures when needed. Resetting content must not weaken this guide.

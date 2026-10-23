@@ -67,20 +67,22 @@ function readAppLovinPreviewSearch() {
   }
 }
 
-function readLocalFilePreviewSearch() {
+function readLocalPreviewSearch() {
   try {
-    // Directly opened exports get the same editable date as host previews.
-    // Leave served creatives and embedded documents on their existing rules.
-    if (typeof window === "undefined" || window.parent !== window ||
-      window.location.protocol !== "file:") return null;
+    // Local development and directly opened exports share editable previews.
+    // Other served creatives and embedded documents retain their own rules.
+    if (typeof window === "undefined" || window.parent !== window) return null;
     const url = Reflect.construct(URL, [window.location.href]);
+    const isLocalhost = /^https?:$/.test(url.protocol) &&
+      ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+    if (url.protocol !== "file:" && !isLocalhost) return null;
     if (!url.searchParams.has("date")) {
       url.searchParams.set("date", localDateKey(new Date()));
       window.history.replaceState(window.history.state, "", url.href);
     }
     return url.search;
   } catch {
-    // Restricted file/history access must not prevent normal date rendering.
+    // Restricted history access must not prevent normal date rendering.
     return null;
   }
 }
@@ -98,7 +100,7 @@ function sharedCalendarClock() {
   } catch {
     // No parent access: use this document's explicitly supplied parameter.
   }
-  return createCalendarClock(readAppLovinPreviewSearch() ?? readLocalFilePreviewSearch() ?? readCalendarSearch());
+  return createCalendarClock(readAppLovinPreviewSearch() ?? readLocalPreviewSearch() ?? readCalendarSearch());
 }
 
 // Evaluated once, before the React tree renders. Do not recreate on scene entry.
