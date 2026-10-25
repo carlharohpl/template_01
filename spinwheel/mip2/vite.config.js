@@ -1,3 +1,4 @@
+import { base64Packaging } from "./src/hooks/base64Packaging.js";
 import { build, defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -51,24 +52,18 @@ function creativeExports(isSip) {
     name: "creative-exports",
     apply: "build",
     enforce: "post",
-    generateBundle(_options, bundle) {
-      if (!isSip) return;
-      const html = bundle["index.html"];
-      if (!html) throw new Error("The standalone offer HTML was not generated.");
-      html.fileName = "sip3.html";
-      bundle["sip3.html"] = html;
-      delete bundle["index.html"];
-    },
     async closeBundle() {
-      if (!isSip) await build({ mode: "sip3", build: { emptyOutDir: false } });
+      if (!isSip) await build({ mode: "sip3" });
     },
   };
 }
 
 export default defineConfig(({ mode }) => ({
-  plugins: [localMraidFallback(), mode === "sip3" && silentSipAudio(), react(), tailwindcss(), viteSingleFile(), creativeExports(mode === "sip3")],
+  plugins: [localMraidFallback(), mode === "sip3" && silentSipAudio(), react(), tailwindcss(), viteSingleFile({ removeViteModuleLoader: true }), base64Packaging(), creativeExports(mode === "sip3")],
   build: {
-    assetsInlineLimit: 1024 * 1024,
+    modulePreload: false,
+    outDir: mode === "sip3" ? "dist-sip3" : "dist",
+    assetsInlineLimit: () => true,
   },
   server: {
     host: true,

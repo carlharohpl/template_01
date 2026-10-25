@@ -5,9 +5,7 @@
   transition: opacity 500ms ease-out;
 }
 .end-scene-fade.is-visible { opacity: 1; }
-@media (prefers-reduced-motion: reduce) {
-  .end-scene-fade { transition: none; }
-}
+
 
 /* Entrances leave the canvas-relative centering translate untouched. */
 @keyframes musely-logo-enter {
@@ -97,15 +95,7 @@
 .musely-offer-enter {
   animation: musely-offer-enter 480ms 140ms ease-out both;
 }
-@media (prefers-reduced-motion: reduce) {
-  .musely-logo-enter, .musely-headline-enter, .musely-subtitle-enter,
-  .musely-ticket-enter, .musely-grid-enter,
-  .musely-cta-enter.animate-scale-pulse, .musely-cta-hit-enter,
-  .scratch-hand.musely-hand-enter, .musely-product-enter, .musely-discount-enter,
-  .musely-congratulations-enter, .musely-offer-enter {
-    animation: none;
-  }
-}
+
 
 /* Result changes preserve the card's layout and its live scratch masks. */
 .musely-card-state {
@@ -124,14 +114,11 @@
 .musely-result-enter { animation: musely-result-enter 450ms ease-out both; }
 .musely-retry-enter { animation: musely-result-enter 350ms 250ms ease-out both; }
 .musely-retry-card-state { transition: opacity 400ms ease-out; }
-@media (prefers-reduced-motion: reduce) {
-  .musely-card-state, .musely-section-clear, .musely-retry-card-state { transition: none; }
-  .musely-result-enter, .musely-retry-enter { animation: none; }
-}
+
 
 @keyframes scale-pulse {
   0%, 100% { scale: 1; }
-  50% { scale: 1.12; }
+  50% { scale: 1.2; }
 }
 
 .animate-scale-pulse {
@@ -158,10 +145,7 @@
   opacity: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .animate-scale-pulse, .scratch-hand { animation: none; }
-  .scratch-coating { transition: none; }
-}
+
 
 
 /* Each asset owns its entrance; standalone translate keeps canvas centering intact. */
@@ -252,19 +236,7 @@
     cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .beam-logo-enter,
-  .beam-headline-enter,
-  .beam-panel-enter,
-  .beam-pouch-enter,
-  .beam-instruction-enter,
-  .beam-promotion-enter,
-  .beam-cta-enter.animate-scale-pulse,
-  .scratch-hand,
-  .beam-offer-reveal {
-    animation: none;
-  }
-}
+
 
 
 /* First touch hands opacity ownership to the scratch completion transition. */
@@ -290,12 +262,7 @@
 .beam-scratch-stroke.is-stroke-b {
   animation: beam-scratch-erase-b 90ms ease-out both;
 }
-@media (prefers-reduced-motion: reduce) {
-  .beam-scratch-stroke.is-stroke-a,
-  .beam-scratch-stroke.is-stroke-b {
-    animation: none;
-  }
-}
+
 
 @keyframes beam-end-placeholder {
   from { opacity: 0; }
@@ -304,6 +271,7 @@
 .beam-end-placeholder {
   animation: beam-end-placeholder 500ms ease-out both;
 }
-@media (prefers-reduced-motion: reduce) {
-  .beam-end-placeholder { animation: none; }
-}
+
+
+/* Keep mounted artwork at its entrance pose until prepared and painted. */
+[data-entrances-running="false"] :is(img, button, svg, [data-section], .im8-scratch-enter, .musely-grid-enter) { animation-play-state: paused; }

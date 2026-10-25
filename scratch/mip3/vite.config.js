@@ -1,3 +1,4 @@
+import { base64Packaging } from "./src/hooks/base64Packaging.js";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -33,25 +34,13 @@ function localMraidFallback() {
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [
-    localMraidFallback(), react(), tailwindcss(), viteSingleFile(),
-    mode === "endscene" && {
-      name: "standalone-end-scene-output",
-      apply: "build",
-      enforce: "post",
-      generateBundle: {
-        order: "post",
-        handler(_, bundle) {
-          const html = bundle["index.html"];
-          html.fileName = "endscene.html";
-          bundle["endscene.html"] = html;
-          delete bundle["index.html"];
-        },
-      },
-    },
+    localMraidFallback(), react(), tailwindcss(), viteSingleFile({ removeViteModuleLoader: true }), base64Packaging(),
   ],
   build: {
-    assetsInlineLimit: 1024 * 1024,
-    emptyOutDir: mode !== "endscene",
+    modulePreload: false,
+    assetsInlineLimit: () => true,
+    outDir: mode === "endscene" ? "dist-endscene" : "dist",
+    emptyOutDir: true,
   },
   server: {
     host: true,

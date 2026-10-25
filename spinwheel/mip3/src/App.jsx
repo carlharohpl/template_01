@@ -1,6 +1,7 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { prepareImage } from "./hooks/prepareImage";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useScaleUI from "./hooks/useScaleUI";
-import useSound, { handleUnlockGesture, playSound, stopSound } from "./hooks/useSound";
+import useSound, { handleUnlockGesture, playSound, stopSound, waitForSoundCompletion } from "./hooks/useSound";
 import { Cta } from "./components/cta";
 import EndScene from "./components/endscene";
 import logoblack from "./assets/img/newassets/logoblack.webp";
@@ -71,19 +72,27 @@ const App = () => {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all(ASSETS.map((src) => new Promise((resolve) => {
-      const asset = new Image();
-      asset.onload = () => {
-        if (asset.decode) asset.decode().catch(() => {}).then(resolve);
-        else resolve();
-      };
-      asset.onerror = resolve;
-      asset.src = src;
-    }))).then(() => {
-      // Fast Refresh reruns effects; only initial loading may reset gameplay.
-      if (!cancelled && phaseRef.current === "loading") changePhase("idle");
+    let frame1;
+    let frame2;
+    Promise.allSettled(ASSETS.map(src => {
+      const image = new Image();
+      image.src = src;
+      return prepareImage(image);
+    })).then(() => {
+      if (cancelled || phaseRef.current !== "loading") return;
+      frame1 = requestAnimationFrame(() => {
+        frame2 = requestAnimationFrame(() => {
+          if (!cancelled && phaseRef.current === "loading") {
+            changePhase("idle");
+          }
+        });
+      });
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame1);
+      cancelAnimationFrame(frame2);
+    };
   }, [changePhase]);
 
   useEffect(() => {
@@ -167,7 +176,12 @@ const App = () => {
     // Play and unlock directly on the tapped element, within its native gesture.
     const button = spinButtonRef.current;
     button.addEventListener("click", startSpin);
-    return () => button.removeEventListener("click", startSpin);
+    const events = ["pointerdown", "pointermove", "pointerup", "touchstart"];
+    events.forEach(type => button.addEventListener(type, handleUnlockGesture));
+    return () => {
+      button.removeEventListener("click", startSpin);
+      events.forEach(type => button.removeEventListener(type, handleUnlockGesture));
+    };
   }, [startSpin]);
 
   const finishSpin = useCallback(() => {
@@ -185,6 +199,7 @@ const App = () => {
 
   useEffect(() => {
     let timer;
+    let cancelCue;
     if (phase === "spinning") {
       // Read CSS timing so suppressed animation events cannot strand gameplay.
       const durations = getComputedStyle(wheelRef.current).animationDuration.split(",");
@@ -198,9 +213,9 @@ const App = () => {
       };
       timer = window.setTimeout(checkFinished, duration + 300);
     } else if (phase === "retry-settling") {
-      timer = window.setTimeout(() => {
+      cancelCue = waitForSoundCompletion(wrongAudioRef.current, { minimumMs: RESULT_HOLD_MS, onComplete: () => {
         if (phaseRef.current === "retry-settling") changePhase("retry");
-      }, RESULT_HOLD_MS);
+      } });
     } else if (phase === "won" && offerReady) {
       if (!offerSoundPlayedRef.current) {
         offerSoundPlayedRef.current = true;
@@ -208,11 +223,11 @@ const App = () => {
           offerAudioRef.current = playSound(offerSoundPool);
         }
       }
-      timer = window.setTimeout(() => {
+      cancelCue = waitForSoundCompletion(offerAudioRef.current, { minimumMs: END_SCENE_DELAY_MS, onComplete: () => {
         if (phaseRef.current === "won") changePhase("complete");
-      }, END_SCENE_DELAY_MS);
+      } });
     }
-    return () => window.clearTimeout(timer);
+    return () => { window.clearTimeout(timer); cancelCue?.(); };
   }, [phase, finishSpin, changePhase, offerSoundPool, offerReady]);
 
   const handleEndSceneReady = useCallback(() => {

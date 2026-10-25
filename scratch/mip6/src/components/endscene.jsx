@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { openClickthrough } from "./cta";
-import endSceneHtml from "../assets/endscene/endscene.html?raw";
+import endSceneHtml from "../assets/endscene/endscene.html?endcard";
 
 // Supply the host's real bridge before the provided creative starts its runtime.
 const bridgeScript = `<script>
@@ -17,6 +17,7 @@ const endSceneDocument = endSceneHtml.replace("</head>", `${bridgeScript}</head>
 const EndScene = ({ onReady }) => {
   const [visible, setVisible] = useState(false);
   const revealedRef = useRef(false);
+  const notifiedRef = useRef(false);
   const frameRef = useRef(null);
   const fallbackRef = useRef(null);
 
@@ -41,16 +42,17 @@ const EndScene = ({ onReady }) => {
   }, [reveal]);
 
   useEffect(() => {
-    fallbackRef.current = window.setTimeout(reveal, 1200);
+    fallbackRef.current = window.setTimeout(handleLoad, 1200);
     return () => {
       window.clearTimeout(fallbackRef.current);
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
     };
-  }, [reveal]);
+  }, [handleLoad]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || notifiedRef.current) return;
+    notifiedRef.current = true;
     onReady?.();
   }, [visible, onReady]);
 
@@ -73,7 +75,7 @@ const EndScene = ({ onReady }) => {
         type="button"
         aria-label="Open offer"
         disabled={!visible}
-        className="absolute inset-0 z-10 h-full w-full cursor-pointer bg-transparent focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-[#780c2e]"
+        className="absolute inset-0 z-30 h-full w-full cursor-pointer bg-transparent focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-[#780c2e]"
         onClick={(event) => {
           event.stopPropagation();
           openClickthrough();

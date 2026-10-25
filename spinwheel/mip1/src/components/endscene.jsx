@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import endSceneHtml from "../assets/endscene/endscene.html?raw";
+import endSceneHtml from "../assets/endscene/endscene.html?endcard";
 import { openClickthrough } from "./cta";
 import useSound, { playSound, stopSound } from "../hooks/useSound";
 import endSceneSound from "../assets/sounds/endscene1.mp3";
@@ -43,8 +43,7 @@ const EndScene = ({ active, onReady }) => {
   }, [onReady]);
 
   const revealAfterPaint = useCallback(() => {
-    if (revealedRef.current) return;
-    framesRef.current.forEach(cancelAnimationFrame);
+    if (revealedRef.current || framesRef.current.length) return;
     framesRef.current = [requestAnimationFrame(() => {
       framesRef.current.push(requestAnimationFrame(reveal));
     })];
@@ -57,6 +56,7 @@ const EndScene = ({ active, onReady }) => {
     return () => {
       window.clearTimeout(fallbackRef.current);
       framesRef.current.forEach(cancelAnimationFrame);
+      framesRef.current = [];
       mediaCleanupRef.current?.();
       audioCleanupRef.current?.();
     };
@@ -147,7 +147,7 @@ const EndScene = ({ active, onReady }) => {
         type="button"
         aria-label="Open offer"
         disabled={!visible}
-        className="absolute inset-0 z-10 h-full w-full cursor-pointer border-0 bg-transparent focus-visible:outline-4 focus-visible:outline-offset-[-4px] focus-visible:outline-[#4D523C]"
+        className="absolute inset-0 z-30 h-full w-full cursor-pointer border-0 bg-transparent focus-visible:outline-4 focus-visible:outline-offset-[-4px] focus-visible:outline-[#4D523C]"
         onClick={(event) => {
           event.stopPropagation();
           openClickthrough();

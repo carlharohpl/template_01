@@ -18,9 +18,10 @@ export const Cta = ({ scene = "gameplay" }) => scene === "end" ? (
     />
     <button
       type="button"
+      data-cta="true"
       aria-label="ZUR APP"
       data-end-cta="true"
-      className="pointer-events-auto absolute left-1/2 top-[1683px] z-[70] h-[162px] w-[476px] -translate-x-1/2 cursor-pointer touch-manipulation rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-white wolt-end-slide-up"
+      className="pointer-events-auto absolute left-1/2 top-[1677.6px] z-[70] h-[172.8px] w-[508.8px] -translate-x-1/2 cursor-pointer touch-manipulation rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-white wolt-end-slide-up"
       onClick={(event) => {
         event.stopPropagation();
         openClickthrough();
@@ -37,8 +38,9 @@ export const Cta = ({ scene = "gameplay" }) => scene === "end" ? (
     />
     <button
       type="button"
+      data-cta="true"
       aria-label="ZUR APP"
-      className="wolt-cta-hit-enter absolute left-1/2 top-[1541px] z-40 h-[162px] w-[484px] -translate-x-1/2 cursor-pointer touch-manipulation rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-white"
+      className="wolt-cta-hit-enter absolute left-1/2 top-[1528.6px] z-40 h-[172.8px] w-[508.8px] -translate-x-1/2 cursor-pointer touch-manipulation rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-white"
       onClick={(event) => {
         event.stopPropagation();
         openClickthrough();

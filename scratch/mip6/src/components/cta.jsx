@@ -17,8 +17,9 @@ export const Cta = () => (
     />
     <button
       type="button"
+      data-cta="true"
       aria-label="Shop Now"
-      className="musely-cta-hit-enter absolute left-1/2 top-[1645px] z-40 h-[168px] w-[597px] -translate-x-1/2 cursor-pointer rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-[#780c2e]"
+      className="musely-cta-hit-enter absolute left-1/2 top-[1636.14px] z-40 h-[154.31px] w-[552px] -translate-x-1/2 cursor-pointer rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-[#780c2e]"
       onClick={(event) => {
         event.stopPropagation();
         openClickthrough();

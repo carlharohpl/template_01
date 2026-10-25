@@ -1,6 +1,7 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { prepareImage } from "./hooks/prepareImage";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useScaleUI from "./hooks/useScaleUI";
-import useSound, { handleUnlockGesture, playSound, stopSound } from "./hooks/useSound";
+import useSound, { handleUnlockGesture, playSound, stopSound, waitForSoundCompletion } from "./hooks/useSound";
 import { Cta } from "./components/cta";
 import EndScene from "./components/endscene";
 import logo from "./assets/img/newassets/logo.webp";
@@ -58,15 +59,25 @@ const App = () => {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all(ASSETS.map((src) => new Promise((resolve) => {
-      const asset = new Image();
-      asset.onload = resolve;
-      asset.onerror = resolve;
-      asset.src = src;
-    }))).then(() => {
-      if (!cancelled) changePhase("idle");
+    let frame1;
+    let frame2;
+    Promise.allSettled(ASSETS.map(src => {
+      const image = new Image();
+      image.src = src;
+      return prepareImage(image);
+    })).then(() => {
+      if (cancelled || phaseRef.current !== "loading") return;
+      frame1 = requestAnimationFrame(() => {
+        frame2 = requestAnimationFrame(() => {
+          if (!cancelled && phaseRef.current === "loading") changePhase("idle");
+        });
+      });
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame1);
+      cancelAnimationFrame(frame2);
+    };
   }, [changePhase]);
 
   const stopAllAudio = useCallback(() => {
@@ -128,7 +139,12 @@ const App = () => {
     // Play and unlock directly on the tapped element, within its native gesture.
     const button = spinButtonRef.current;
     button.addEventListener("click", startSpin);
-    return () => button.removeEventListener("click", startSpin);
+    const events = ["pointerdown", "pointermove", "pointerup", "touchstart"];
+    events.forEach(type => button.addEventListener(type, handleUnlockGesture));
+    return () => {
+      button.removeEventListener("click", startSpin);
+      events.forEach(type => button.removeEventListener(type, handleUnlockGesture));
+    };
   }, [startSpin]);
 
   const finishSpin = useCallback(() => {
@@ -142,6 +158,7 @@ const App = () => {
 
   useEffect(() => {
     let timer;
+    let cancelCue;
     if (phase === "spinning") {
       // Read CSS timing so suppressed animation events cannot strand gameplay.
       const durations = getComputedStyle(wheelRef.current).animationDuration.split(",");
@@ -149,9 +166,9 @@ const App = () => {
       timer = window.setTimeout(finishSpin, duration + 300);
     } else if (phase === "won") {
       // Hold the locked result and confetti before loading the supplied end scene.
-      timer = window.setTimeout(() => changePhase("complete"), WIN_HOLD_MS);
+      cancelCue = waitForSoundCompletion(winAudioRef.current, { minimumMs: WIN_HOLD_MS, onComplete: () => changePhase("complete") });
     }
-    return () => window.clearTimeout(timer);
+    return () => { window.clearTimeout(timer); cancelCue?.(); };
   }, [phase, finishSpin, changePhase]);
 
   const handleEndSceneReady = useCallback(() => {

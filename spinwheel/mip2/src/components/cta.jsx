@@ -17,11 +17,10 @@ export const Cta = ({ won = false, offerPanel = false }) => (
     />
     <button
       type="button"
+      data-cta="true"
       aria-label="Shop now"
-      tabIndex={-1}
-      className={`absolute left-1/2 top-[1648px] z-[81] h-[164px] w-[680px] -translate-x-1/2 touch-none cursor-pointer border-0 bg-transparent scene-entrance ${offerPanel ? "offer-panel-hit" : "cta-hit-area"}`}
+      className={`absolute left-1/2 top-[1643.62px] z-[81] h-[172.55px] w-[814.8px] -translate-x-1/2 touch-none cursor-pointer focus-visible:outline-4 focus-visible:outline-offset-4 border-0 bg-transparent scene-entrance ${offerPanel ? "offer-panel-hit" : "cta-hit-area"}`}
       onClick={(event) => {
-        if (event.detail === 0 || event.button !== 0) return;
         event.stopPropagation();
         openClickthrough();
       }}

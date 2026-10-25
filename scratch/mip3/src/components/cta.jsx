@@ -17,9 +17,10 @@ export const Cta = ({ scene = "gameplay" }) => scene === "end" ? (
     />
     <button
       type="button"
+      data-cta="true"
       aria-label="CLAIM MY DEAL"
       data-end-cta="true"
-      className="pointer-events-auto absolute left-1/2 top-[1719px] z-[70] h-[152px] w-[526px] -translate-x-1/2 cursor-pointer touch-manipulation rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-white wolt-end-slide-up"
+      className="pointer-events-auto absolute left-1/2 top-[1719.8px] z-[70] h-[146.4px] w-[564px] -translate-x-1/2 cursor-pointer touch-manipulation rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-white wolt-end-slide-up"
       onClick={(event) => {
         event.stopPropagation();
         openClickthrough();
@@ -36,8 +37,9 @@ export const Cta = ({ scene = "gameplay" }) => scene === "end" ? (
     />
     <button
       type="button"
+      data-cta="true"
       aria-label="CLAIM MY DEAL"
-      className="ev-cta-hit-enter absolute left-1/2 top-[1719px] z-[60] h-[152px] w-[526px] -translate-x-1/2 cursor-pointer touch-manipulation rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-white"
+      className="ev-cta-hit-enter absolute left-1/2 top-[1719.8px] z-[60] h-[146.4px] w-[564px] -translate-x-1/2 cursor-pointer touch-manipulation rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-white"
       onClick={(event) => {
         event.stopPropagation();
         openClickthrough();

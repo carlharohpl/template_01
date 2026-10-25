@@ -68,9 +68,9 @@
           }
         };
 
-        // Click-through: resolve the standard click-tag variables, use
-        // mraid.open() only when MRAID is usable.
-        window.__mip.openClickthrough = function () {
+        // Click-through: resolve the standard click-tag variables and use
+        // mraid.open(clickTarget) accepts any string, including an empty target.
+        window.__mip.openClickthrough = function handleMraidOpen() {
           var mraid = window.mraid || {};
           var clickTarget =
             window.clickTag ||
@@ -79,23 +79,22 @@
             window.clickThrough ||
             "";
 
+          if (typeof clickTarget !== "string") {
+            return;
+          }
+
           if (
             typeof mraid.open === "function" &&
             typeof window.isMraidUsable === "function" &&
             window.isMraidUsable(mraid)
           ) {
             try {
-              if (clickTarget) {
-                mraid.open(clickTarget);
-              } else {
-                mraid.open();
-              }
+              mraid.open(clickTarget);
               return;
             } catch (error) {
-              console.error("MRAID open failed", error);
+              console.error("mraid.open failed", error);
             }
           }
-
         };
       })();
     </script>
@@ -148,7 +147,6 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <link rel="icon" href="data:," />
     <title>Musely</title>
   </head>
 

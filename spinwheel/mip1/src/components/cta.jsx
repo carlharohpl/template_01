@@ -17,9 +17,9 @@ export const Cta = () => (
     />
     <button
       type="button"
+      data-cta="true"
       aria-label="Shop now"
-      tabIndex={-1}
-      className="absolute left-1/2 top-[1670px] z-20 h-[177px] w-[728px] -translate-x-1/2 touch-none cursor-pointer rounded-full border-0 bg-transparent scene-entrance cta-hit-area"
+      className="absolute left-1/2 top-[1662.32px] z-20 h-[188.11px] w-[778.8px] -translate-x-1/2 touch-none cursor-pointer focus-visible:outline-4 focus-visible:outline-offset-4 rounded-full border-0 bg-transparent scene-entrance cta-hit-area"
       onClick={(event) => {
         event.stopPropagation();
         openClickthrough();

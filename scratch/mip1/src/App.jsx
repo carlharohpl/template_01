@@ -1,6 +1,7 @@
+import { prepareImage } from "./hooks/prepareImage";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import useScaleUI from "./hooks/useScaleUI";
-import useSound, { handleUnlockGesture, playSound, stopSound } from "./hooks/useSound";
+import useSound, { handleUnlockGesture, playSound, stopSound, waitForSoundCompletion } from "./hooks/useSound";
 import scratchingSound from "./assets/sounds/scratching.mp3";
 import gameWinSound from "./assets/sounds/gamewin5.mp3";
 import endSceneSound from "./assets/sounds/endscene3.wav";
@@ -51,6 +52,7 @@ const App = () => {
   const scratchRef = useRef(null);
   const completedRef = useRef(false);
   const [ready, setReady] = useState(false);
+  const [entrancesRunning, setEntrancesRunning] = useState(false);
   const [scene, setScene] = useState("initial");
   const [completedSections, setCompletedSections] = useState([]);
 
@@ -67,12 +69,12 @@ const App = () => {
       return image;
     });
     // Decode the matching layers before accepting scratch input.
-    Promise.all([...coatings, ...rewards].map((image) => image.decode()).concat([
+    Promise.allSettled([...coatings, ...rewards].map(image => prepareImage(image)).concat([
       product, platform, subBackground, logo, headline, hand,
     ].map((src) => {
       const asset = new Image();
       asset.src = src;
-      return asset.decode();
+      return prepareImage(asset);
     }))).then(() => {
       if (cancelled) return;
       const mask = document.createElement("canvas");
@@ -96,6 +98,7 @@ const App = () => {
       maskContext.restore();
       maskContext.clip();
       SECTIONS.forEach((section, index) => {
+        if (!coatings[index].naturalWidth) return;
         maskContext.drawImage(coatings[index],
           section.x * MASK_WIDTH / SCRATCH_WIDTH, section.y * MASK_HEIGHT / SCRATCH_HEIGHT,
           CELL_WIDTH * MASK_WIDTH / SCRATCH_WIDTH, CELL_HEIGHT * MASK_HEIGHT / SCRATCH_HEIGHT);
@@ -130,14 +133,6 @@ const App = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (scene !== "winning") return;
-    const timeout = window.setTimeout(() => {
-      // Hold the revealed offer in place for the existing two-second handoff.
-      setScene("end");
-    }, REWARD_HOLD_MS);
-    return () => window.clearTimeout(timeout);
-  }, [scene]);
 
   useEffect(() => {
     if (scene !== "revealed") return;
@@ -147,6 +142,14 @@ const App = () => {
     return () => window.clearTimeout(timeout);
   }, [scene]);
 
+
+  useEffect(() => {
+    if (!ready) return;
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setEntrancesRunning(true));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [ready]);
 
   const muteScratching = useCallback(() => {
     window.clearTimeout(scratchIdleRef.current);
@@ -174,7 +177,12 @@ const App = () => {
     if (!document.hidden && !gameWinSourceRef.current) {
       gameWinSourceRef.current = playSound(gameWinAudio);
     }
+    const cancel = waitForSoundCompletion(gameWinSourceRef.current, {
+      minimumMs: REWARD_HOLD_MS,
+      onComplete: () => setScene("end"),
+    });
     return () => {
+      cancel();
       stopSound(gameWinSourceRef.current);
       gameWinSourceRef.current = null;
     };
@@ -210,7 +218,7 @@ const App = () => {
     const unlock = (event) => {
       if (completedRef.current || event.pointerType === "touch") return;
       if (event.type === "pointerdown" || scratchRef.current?.pointerId === event.pointerId) {
-        handleUnlockGesture();
+        handleUnlockGesture(event);
       }
     };
     const stopAll = () => {
@@ -442,14 +450,14 @@ const App = () => {
       preventDefault: () => { if (event.cancelable) event.preventDefault(); },
     };
     if (starting) {
-      handleUnlockGesture();
+      handleUnlockGesture(event);
       handlePointerDown(input);
     } else if (event.type === "touchmove") {
       // Retry blocked audio occasionally, not on every high-frequency touch sample.
       const now = performance.now();
       if (scratchSourceRef.current?.paused && now - (state.audioRetryAt || 0) > 250) {
         state.audioRetryAt = now;
-        handleUnlockGesture();
+        handleUnlockGesture(event);
       }
       handlePointerMove(input);
     } else {
@@ -492,6 +500,7 @@ const App = () => {
         ref={wrapperRef}
         className="relative h-dvh w-full overflow-hidden overscroll-none"
         data-scene={scene}
+        data-entrances-running={entrancesRunning}
       >
         <div className="absolute left-[var(--ui-left,0px)] top-[var(--ui-top,0px)] h-[var(--ui-height,1920px)] w-[var(--ui-width,1080px)]">
           <div

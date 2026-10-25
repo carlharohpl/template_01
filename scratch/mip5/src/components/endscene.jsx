@@ -37,6 +37,7 @@ const CONFETTI = Array.from({ length: 84 }, (_, index) => {
 const EndScene = ({ onReady, promoDate }) => {
   const [visible, setVisible] = useState(false);
   const revealedRef = useRef(false);
+  const notifiedRef = useRef(false);
   const frameRef = useRef(null);
   const fallbackRef = useRef(null);
 
@@ -51,22 +52,21 @@ const EndScene = ({ onReady, promoDate }) => {
 
   useEffect(() => {
     let cancelled = false;
-    fallbackRef.current = window.setTimeout(reveal, 1200);
-    Promise.all([logo, savings, offer, divider, cta].map((src) => {
-      const image = new Image();
-      image.src = src;
-      return image.decode();
-    })).then(() => {
-      if (cancelled) return;
+    const scheduleReveal = () => {
+      if (cancelled || revealedRef.current || frameRef.current !== null) return;
       frameRef.current = requestAnimationFrame(() => {
         frameRef.current = requestAnimationFrame(() => {
           frameRef.current = null;
-          reveal();
+          if (!cancelled) reveal();
         });
       });
-    }).catch(() => {
-      // The existing readiness fallback still reveals cached/loaded artwork.
-    });
+    };
+    fallbackRef.current = window.setTimeout(scheduleReveal, 1200);
+    Promise.allSettled([logo, savings, offer, divider, cta].map((src) => {
+      const image = new Image();
+      image.src = src;
+      return image.decode?.();
+    })).then(scheduleReveal);
     return () => {
       cancelled = true;
       window.clearTimeout(fallbackRef.current);
@@ -76,7 +76,8 @@ const EndScene = ({ onReady, promoDate }) => {
   }, [reveal]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || notifiedRef.current) return;
+    notifiedRef.current = true;
     onReady?.();
   }, [visible, onReady]);
 
@@ -95,14 +96,14 @@ const EndScene = ({ onReady, promoDate }) => {
         type="button"
         aria-label="Open offer"
         disabled={!visible}
-        className="absolute inset-0 z-10 h-full w-full cursor-pointer touch-manipulation bg-transparent focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-white"
+        className="absolute inset-0 z-30 h-full w-full cursor-pointer touch-manipulation bg-transparent focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-white"
         onClick={(event) => {
           event.stopPropagation();
           openClickthrough();
         }}
       />
       {visible && CONFETTI.map((piece) => (
-        <span
+        <div
           key={piece.id}
           aria-hidden="true"
           className="pointer-events-none absolute top-[-60px] z-[15] [clip-path:var(--confetti-shape)] wolt-end-confetti"

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Cta, openClickthrough } from "./cta";
+import { calendarClock, subscribeCalendarClock } from "../hooks/calendarClock";
 import logo from "../assets/img/logo.webp";
 import price from "../assets/img/subtitle4.webp";
 import offer from "../assets/img/subtitle5.webp";
@@ -36,36 +37,13 @@ const CONFETTI = Array.from({ length: 84 }, (_, index) => {
 
 const EndScene = ({ onReady }) => {
   const [visible, setVisible] = useState(false);
-  const [promoDate, setPromoDate] = useState(() => new Date());
+  const [promoDate, setPromoDate] = useState(() => calendarClock.now());
   const revealedRef = useRef(false);
+  const notifiedRef = useRef(false);
   const frameRef = useRef(null);
   const fallbackRef = useRef(null);
 
-  useEffect(() => {
-    let midnightTimer;
-    const scheduleMidnight = () => {
-      window.clearTimeout(midnightTimer);
-      const now = new Date();
-      const midnight = new Date(now);
-      midnight.setHours(24, 0, 0, 50);
-      midnightTimer = window.setTimeout(refreshDate, midnight.getTime() - now.getTime());
-    };
-    const refreshDate = () => {
-      setPromoDate(new Date());
-      scheduleMidnight();
-    };
-    const handleVisibility = () => {
-      if (!document.hidden) refreshDate();
-    };
-    scheduleMidnight();
-    window.addEventListener("focus", refreshDate);
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => {
-      window.clearTimeout(midnightTimer);
-      window.removeEventListener("focus", refreshDate);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, []);
+  useEffect(() => subscribeCalendarClock(calendarClock, () => setPromoDate(calendarClock.now())), []);
 
   const reveal = useCallback(() => {
     if (revealedRef.current) return;
@@ -78,22 +56,21 @@ const EndScene = ({ onReady }) => {
 
   useEffect(() => {
     let cancelled = false;
-    fallbackRef.current = window.setTimeout(reveal, 1200);
-    Promise.all([logo, price, offer, divider, cta].map((src) => {
-      const image = new Image();
-      image.src = src;
-      return image.decode();
-    })).then(() => {
-      if (cancelled) return;
+    const scheduleReveal = () => {
+      if (cancelled || revealedRef.current || frameRef.current !== null) return;
       frameRef.current = requestAnimationFrame(() => {
         frameRef.current = requestAnimationFrame(() => {
           frameRef.current = null;
-          reveal();
+          if (!cancelled) reveal();
         });
       });
-    }).catch(() => {
-      // The existing readiness fallback still reveals cached/loaded artwork.
-    });
+    };
+    fallbackRef.current = window.setTimeout(scheduleReveal, 1200);
+    Promise.allSettled([logo, price, offer, divider, cta].map((src) => {
+      const image = new Image();
+      image.src = src;
+      return image.decode?.();
+    })).then(scheduleReveal);
     return () => {
       cancelled = true;
       window.clearTimeout(fallbackRef.current);
@@ -103,7 +80,8 @@ const EndScene = ({ onReady }) => {
   }, [reveal]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || notifiedRef.current) return;
+    notifiedRef.current = true;
     onReady?.();
   }, [visible, onReady]);
 
@@ -122,14 +100,14 @@ const EndScene = ({ onReady }) => {
         type="button"
         aria-label="Open offer"
         disabled={!visible}
-        className="absolute inset-0 z-10 h-full w-full cursor-pointer touch-manipulation bg-transparent focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-white"
+        className="absolute inset-0 z-30 h-full w-full cursor-pointer touch-manipulation bg-transparent focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-white"
         onClick={(event) => {
           event.stopPropagation();
           openClickthrough();
         }}
       />
       {visible && CONFETTI.map((piece) => (
-        <span
+        <div
           key={piece.id}
           aria-hidden="true"
           className="pointer-events-none absolute top-[-60px] z-[15] [clip-path:var(--confetti-shape)] wolt-end-confetti"

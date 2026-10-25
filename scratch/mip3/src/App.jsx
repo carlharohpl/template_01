@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import useScaleUI from "./hooks/useScaleUI";
-import useSound, { handleUnlockGesture, playSound, stopSound } from "./hooks/useSound";
+import useSound, { handleUnlockGesture, playSound, stopSound, waitForSoundCompletion } from "./hooks/useSound";
 import scratchingSound from "./assets/sounds/scratching.mp3";
 import gameWinSound from "./assets/sounds/gamewin5.mp3";
 import endSceneSound from "./assets/sounds/endscene3.wav";
@@ -165,11 +165,6 @@ const App = () => {
     return () => cancelAnimationFrame(frame);
   }, [scene]);
 
-  useEffect(() => {
-    if (!END_SCENE_ENABLED || scene !== "winning" || !resultRunning) return;
-    const timeout = window.setTimeout(() => setScene("end"), REWARD_HOLD_MS);
-    return () => window.clearTimeout(timeout);
-  }, [scene, resultRunning]);
 
   useEffect(() => {
     if (scene !== "revealed") return;
@@ -203,7 +198,12 @@ const App = () => {
     if (!document.hidden && !gameWinSourceRef.current) {
       gameWinSourceRef.current = playSound(gameWinAudio);
     }
+    const cancel = waitForSoundCompletion(gameWinSourceRef.current, {
+      minimumMs: REWARD_HOLD_MS,
+      onComplete: () => { if (END_SCENE_ENABLED) setScene("end"); },
+    });
     return () => {
+      cancel();
       stopSound(gameWinSourceRef.current);
       gameWinSourceRef.current = null;
     };
@@ -237,7 +237,7 @@ const App = () => {
     const unlock = (event) => {
       if (completedRef.current || event.pointerType === "touch") return;
       if (event.type === "pointerdown" || scratchRef.current?.pointerId === event.pointerId) {
-        handleUnlockGesture();
+        handleUnlockGesture(event);
       }
     };
     const stopAll = () => {
@@ -450,13 +450,13 @@ const App = () => {
       preventDefault: () => { if (event.cancelable) event.preventDefault(); },
     };
     if (starting) {
-      handleUnlockGesture();
+      handleUnlockGesture(event);
       handlePointerDown(input);
     } else if (event.type === "touchmove") {
       const now = performance.now();
       if (scratchSourceRef.current?.paused && now - (state.audioRetryAt || 0) > 250) {
         state.audioRetryAt = now;
-        handleUnlockGesture();
+        handleUnlockGesture(event);
       }
       handlePointerMove(input);
     } else {

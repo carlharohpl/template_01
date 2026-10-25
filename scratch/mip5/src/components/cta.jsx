@@ -21,9 +21,9 @@ export const Cta = ({ scene = "gameplay" }) => {
       const width = image.offsetWidth;
       const height = image.offsetHeight;
       button.style.left = `${image.offsetLeft}px`;
-      button.style.top = `${image.offsetTop - 13}px`;
-      button.style.width = `${Math.ceil(width * 1.12)}px`;
-      button.style.height = `${height + 26}px`;
+      button.style.top = `${image.offsetTop - height * 0.1}px`;
+      button.style.width = `${Math.ceil(width * 1.2)}px`;
+      button.style.height = `${Math.ceil(height * 1.2)}px`;
     };
     alignHitArea();
     const resizeObserver = new ResizeObserver(alignHitArea);
@@ -51,6 +51,7 @@ export const Cta = ({ scene = "gameplay" }) => {
       <button
         ref={buttonRef}
         type="button"
+      data-cta="true"
         aria-label="GET MY DISCOUNT"
         data-end-cta={scene === "end" ? "true" : undefined}
         className={`pointer-events-auto absolute z-[70] -translate-x-1/2 cursor-pointer touch-manipulation rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-white ${scene === "end" ? "wolt-end-slide-up" : "ev-cta-hit-enter"}`}

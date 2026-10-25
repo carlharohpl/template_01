@@ -163,15 +163,7 @@
 .ev-creative.ev-result:not(.ev-result-running) .ev-cta-enter,
 .ev-creative.ev-result:not(.ev-result-running) .ev-cta-hit-enter { animation-play-state: paused; }
 @keyframes ev-gentle-enter { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) {
-  .ev-logo-enter, .ev-headline-enter, .ev-hand-guide, .ev-single-hand-guide, .ev-cta-enter.animate-scale-pulse,
-  .ev-cta-hit-enter, .ev-congratulations-enter, .ev-youve-got-enter, .ev-selected-reward,
-  .ev-card-enter[data-section], .ev-result .ev-cta-enter.animate-scale-pulse, .ev-result .ev-cta-hit-enter {
-    animation: ev-gentle-enter 180ms ease-out both;
-  }
-  .ev-section-clear, .ev-result-backdrop { transition-duration: 180ms; }
-  .ev-offer-celebrate { animation: none; }
-}
+
 
 /* Wolt artwork enters independently without moving the scaled canvas. */
 @keyframes wolt-logo-enter {
@@ -325,16 +317,7 @@
     scale-pulse 1.6s 1020ms ease-in-out infinite;
 }
 .wolt-cta-hit-enter { animation: wolt-cta-enter 560ms 460ms cubic-bezier(.16,1,.3,1) both; }
-@media (prefers-reduced-motion: reduce) {
-  .wolt-logo-enter, .wolt-headline-enter, .wolt-subtitle-enter, .wolt-card-enter, .wolt-offer-reveal,
-  .wolt-dear-enter, .wolt-fries-enter, .wolt-small-fries-enter,
-  .wolt-cup-enter, .wolt-second-cup-enter, .wolt-burger-enter, .wolt-small-burger-enter,
-  .wolt-spark-1, .wolt-spark-2, .wolt-spark-3, .wolt-spark-4,
-  .wolt-spark-5, .wolt-spark-6, .wolt-spark-7, .wolt-spark-8, .wolt-spark-trail, .wolt-lines-enter,
-  .wolt-hand-enter, .wolt-hand-enter.is-guiding, .wolt-disclaimer-enter,
-  .wolt-cta-enter.animate-scale-pulse, .wolt-cta-hit-enter { animation: none; }
-  .wolt-section-clear { transition: none; }
-}
+
 
 /* I·M·8 entrances keep independent canvas positioning and scratch coordinates. */
 @keyframes im8-logo-enter {
@@ -399,11 +382,7 @@
     scale-pulse 1.6s 960ms ease-in-out infinite;
 }
 .im8-cta-hit-enter { animation: im8-cta-enter 540ms 420ms cubic-bezier(.16,1,.3,1) both; }
-@media (prefers-reduced-motion: reduce) {
-  .im8-logo-enter, .im8-headline-enter, .im8-scratch-enter,
-  .im8-platform-enter, .im8-product-enter, .im8-offer-reveal, .im8-hand-guide,
-  .im8-cta-enter.animate-scale-pulse, .im8-cta-hit-enter { animation: none; }
-}
+
 
 .end-scene-fade {
   opacity: 0;
@@ -437,14 +416,7 @@
   0%, 100% { scale: 1 1; }
   50% { scale: .28 1; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .end-scene-fade { transition: none; }
-  .wolt-end-slide-up, .wolt-end-cta-enter.animate-scale-pulse { animation: none; }
-  .wolt-end-confetti {
-    animation: none;
-    transform: translate(0, var(--confetti-rest)) rotate(var(--confetti-spin));
-  }
-}
+
 
 /* Entrances leave the canvas-relative centering translate untouched. */
 @keyframes musely-logo-enter {
@@ -534,15 +506,7 @@
 .musely-offer-enter {
   animation: musely-offer-enter 480ms 140ms ease-out both;
 }
-@media (prefers-reduced-motion: reduce) {
-  .musely-logo-enter, .musely-headline-enter, .musely-subtitle-enter,
-  .musely-ticket-enter, .musely-grid-enter,
-  .musely-cta-enter.animate-scale-pulse, .musely-cta-hit-enter,
-  .scratch-hand.musely-hand-enter, .musely-product-enter, .musely-discount-enter,
-  .musely-congratulations-enter, .musely-offer-enter {
-    animation: none;
-  }
-}
+
 
 /* Result changes preserve the card's layout and its live scratch masks. */
 .musely-card-state {
@@ -561,14 +525,11 @@
 .musely-result-enter { animation: musely-result-enter 450ms ease-out both; }
 .musely-retry-enter { animation: musely-result-enter 350ms 250ms ease-out both; }
 .musely-retry-card-state { transition: opacity 400ms ease-out; }
-@media (prefers-reduced-motion: reduce) {
-  .musely-card-state, .musely-section-clear, .musely-retry-card-state { transition: none; }
-  .musely-result-enter, .musely-retry-enter { animation: none; }
-}
+
 
 @keyframes scale-pulse {
   0%, 100% { scale: 1; }
-  50% { scale: 1.12; }
+  50% { scale: 1.2; }
 }
 
 .animate-scale-pulse {
@@ -595,10 +556,7 @@
   opacity: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .animate-scale-pulse, .scratch-hand { animation: none; }
-  .scratch-coating { transition: none; }
-}
+
 
 
 /* Each asset owns its entrance; standalone translate keeps canvas centering intact. */
@@ -689,19 +647,7 @@
     cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .beam-logo-enter,
-  .beam-headline-enter,
-  .beam-panel-enter,
-  .beam-pouch-enter,
-  .beam-instruction-enter,
-  .beam-promotion-enter,
-  .beam-cta-enter.animate-scale-pulse,
-  .scratch-hand,
-  .beam-offer-reveal {
-    animation: none;
-  }
-}
+
 
 
 /* First touch hands opacity ownership to the scratch completion transition. */
@@ -727,12 +673,7 @@
 .beam-scratch-stroke.is-stroke-b {
   animation: beam-scratch-erase-b 90ms ease-out both;
 }
-@media (prefers-reduced-motion: reduce) {
-  .beam-scratch-stroke.is-stroke-a,
-  .beam-scratch-stroke.is-stroke-b {
-    animation: none;
-  }
-}
+
 
 @keyframes beam-end-placeholder {
   from { opacity: 0; }
@@ -740,7 +681,4 @@
 }
 .beam-end-placeholder {
   animation: beam-end-placeholder 500ms ease-out both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .beam-end-placeholder { animation: none; }
 }

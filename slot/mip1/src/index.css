@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* Each asset owns its motion; standalone translate retains canvas centering. */
+@keyframes logo-arrive {
+  from { opacity: 0; transform: translateY(-24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes banner-arrive {
+  from { opacity: 0; transform: scaleX(.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes headline-arrive {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes machine-arrive {
+  from { opacity: 0; transform: translateY(26px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes reel-reveal { from { opacity: 0; } to { opacity: 1; } }
+@keyframes spin-arrive {
+  from { opacity: 0; transform: translateY(10px) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes hand-arrive { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hand-tap {
+  0%, 100% { transform: translate(15px, 18px); scale: 1; }
+  32%, 60% { transform: translate(-7px, -10px); scale: 1; }
+  44% { transform: translate(-5px, -2px); scale: .95; }
+}
+@keyframes cta-arrive {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes scale-pulse {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.2; }
+}
+.logo-entrance { animation: logo-arrive 500ms ease-out both; }
+.banner-entrance { animation: banner-arrive 420ms 120ms ease-out both; }
+.headline-entrance { animation: headline-arrive 460ms 180ms ease-out both; }
+.machine-entrance { animation: machine-arrive 640ms 280ms cubic-bezier(.2,.65,.3,1) both; }
+.reel-entrance { animation: reel-reveal 300ms 700ms ease-out both; }
+.spin-entrance { animation: spin-arrive 380ms 850ms ease-out both; }
+.hand-guidance { animation: hand-arrive 300ms 1100ms ease-out both, hand-tap 1800ms 1400ms ease-in-out infinite both; }
+.animate-scale-pulse { animation: scale-pulse 1.6s ease-in-out infinite; }
+.cta-entrance.animate-scale-pulse { animation: cta-arrive 400ms 1200ms ease-out both, scale-pulse 1.6s 1600ms ease-in-out infinite; }
+.scene-preparing .entrance-asset { animation-play-state: paused; }
+.scene-inactive .entrance-asset { animation-play-state: paused; }
+
+/* Each reel moves only its symbols inside a canvas-relative clipping window. */
+@keyframes reel-spin {
+  0% { transform: translate3d(0, var(--reel-start), 0); animation-timing-function: cubic-bezier(.45,0,.8,.5); }
+  12% { transform: translate3d(0, var(--reel-accelerate), 0); animation-timing-function: linear; }
+  64% { transform: translate3d(0, var(--reel-brake), 0); animation-timing-function: cubic-bezier(.2,.65,.3,1); }
+  94% { transform: translate3d(0, 3px, 0); animation-timing-function: ease-out; }
+  100% { transform: translate3d(0, 0, 0); }
+}
+.reel-symbol { transform: translate3d(0, var(--reel-start), 0); }
+.reel-spinning .reel-symbol {
+  animation: reel-spin var(--reel-duration) var(--reel-delay) linear both;
+  will-change: transform;
+}
+.reel-settled .reel-symbol { transform: translate3d(0, 0, 0); }
+@keyframes spin-click {
+  0%, 100% { scale: 1; filter: brightness(1); }
+  40% { scale: .93; filter: brightness(.82); }
+}
+.spin-click { animation: spin-click 260ms ease-out both; }
+.spin-entrance.spin-click {
+  animation: spin-arrive 380ms 850ms ease-out both, spin-click 260ms ease-out both;
+}
+
+/* Filter only the gameplay canvas, never the foreground result canvas. */
+.gameplay-treatment { filter: blur(0); transition: filter 500ms ease-out; }
+.gameplay-treatment.has-result { filter: blur(9px); }
+.background-treatment { filter: blur(0); transition: filter 500ms ease-out; }
+.background-treatment.has-result { filter: blur(7px); }
+.result-shade { opacity: 0; transition: opacity 500ms ease-out; }
+.result-shade.is-visible { opacity: 1; }
+@keyframes result-headline {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes result-product {
+  from { opacity: 0; transform: translateY(22px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes result-caption { from { opacity: 0; } to { opacity: 1; } }
+.result-headline { animation: result-headline 500ms ease-out both; }
+.result-product { animation: result-product 600ms 100ms ease-out both; }
+.result-caption { animation: result-caption 450ms 250ms ease-out both; }
+.result-preparing { animation-play-state: paused; }
+.gameplay-handoff { opacity: 1; transition: opacity 500ms ease-out; }
+.gameplay-handoff.is-hidden { opacity: 0; pointer-events: none; }
+.end-scene-fade { opacity: 0; transition: opacity 500ms ease-out; }
+.end-scene-fade.is-visible { opacity: 1; }

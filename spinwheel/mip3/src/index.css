@@ -2,7 +2,7 @@
 
 @keyframes scale-pulse {
   0%, 100% { scale: 1; }
-  50% { scale: 1.12; }
+  50% { scale: 1.2; }
 }
 
 .animate-scale-pulse {
@@ -58,9 +58,7 @@
 }
 .pointer-settled { animation: none; rotate: 0deg; }
 
-@media (prefers-reduced-motion: reduce) {
-  .pointer-spinning { animation: none; rotate: 0deg; }
-}
+
 
 @keyframes offer-enter {
   from { transform: translate3d(0, 140px, 0) scale(0.86); opacity: 0; }
@@ -87,9 +85,7 @@
     scale-pulse 1.6s ease-in-out 900ms infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .result-logo-enter, .offer-cta-enter.animate-scale-pulse { animation: none; }
-}
+
 
 @keyframes product-one { from { transform: translate3d(-100px, 150px, 0) rotate(-18deg); opacity: 0; } to { transform: translate3d(0, 0, 0); opacity: 1; } }
 @keyframes product-two { from { transform: translate3d(0, 150px, 0) rotate(12deg); opacity: 0; } to { transform: translate3d(0, 0, 0); opacity: 1; } }
@@ -269,24 +265,7 @@ main[data-phase="loading"] .scene-entrance { animation-play-state: paused; }
   from, to { rotate: var(--spin-to); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .offer-enter, .benefit-enter, .result-shade, .product-one, .product-two, .product-three, .product-four { animation: none; }
-  .result-confetti { animation: none; opacity: 0; }
-  .scene-entrance {
-    animation: none;
-    opacity: 1;
-    transform: none;
-    scale: 1;
-    clip-path: none;
-  }
-  .animate-scale-pulse, .cta-enter.animate-scale-pulse, .wheel-idle { animation: none; }
-  .wheel-spinning { animation: wheel-spin-reduced var(--wheel-spin-duration) linear both; }
-  .spin-hit-area, .cta-hit-area { visibility: visible; }
-  .hand-click { animation: none; opacity: 0; }
-  .hand-exit { animation: none; opacity: 0; }
-  .animate-confetti-burst { animation: none; opacity: 0; }
-  .winning-title { animation: none; opacity: 1; transform: none; scale: 1; }
-}
+
 
 .end-scene-fade {
   opacity: 0;
@@ -297,15 +276,4 @@ main[data-phase="loading"] .scene-entrance { animation-play-state: paused; }
 @keyframes offer-reduced-enter {
   from { opacity: 0; }
   to { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .offer-enter, .result-logo-enter, .offer-cta-enter.animate-scale-pulse,
-  .product-one, .product-two, .product-three, .product-four {
-    animation: offer-reduced-enter 300ms ease-out both;
-    transform: none;
-    scale: 1;
-    will-change: opacity;
-  }
-  .end-scene-fade { transition: none; }
 }

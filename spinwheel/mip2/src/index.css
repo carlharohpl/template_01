@@ -21,14 +21,11 @@
     scale-pulse 1.6s ease-in-out 700ms infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .offer-panel-enter, .offer-panel-discount, .offer-panel-line, .offer-panel-date,
-  .offer-panel-hit, .offer-panel-cta.animate-scale-pulse { animation: none; }
-}
+
 
 @keyframes scale-pulse {
   0%, 100% { scale: 1; }
-  50% { scale: 1.12; }
+  50% { scale: 1.2; }
 }
 
 .animate-scale-pulse {
@@ -131,9 +128,7 @@ main[data-offer-ready="false"] :is(.winning-title, .benefit-enter, .kit-card-ent
   animation: pointer-spin var(--wheel-spin-duration) ease-out both;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pointer-idle, .pointer-enter.pointer-idle, .pointer-spinning { animation: none; rotate: 0deg; }
-}
+
 
 @keyframes benefit-enter { from { opacity: 0; } to { opacity: 1; } }
 .benefit-enter { animation: benefit-enter 250ms ease-out 600ms both; }
@@ -155,9 +150,7 @@ main[data-offer-ready="false"] :is(.winning-title, .benefit-enter, .kit-card-ent
     scale-pulse 1.6s ease-in-out 900ms infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .result-logo-enter, .offer-cta-enter.animate-scale-pulse { animation: none; }
-}
+
 
 /* Prepare only the entering artwork, never the scaled canvas or background. */
 .result-logo-enter, .offer-cta-enter {
@@ -280,38 +273,10 @@ main[data-phase="loading"] .scene-entrance { animation-play-state: paused; }
   from, to { rotate: var(--spin-to); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .benefit-enter, .result-shade { animation: none; }
-  .result-confetti { animation: none; opacity: 0; }
-  .scene-entrance {
-    animation: none;
-    opacity: 1;
-    transform: none;
-    scale: 1;
-    clip-path: none;
-  }
-  .animate-scale-pulse, .cta-enter.animate-scale-pulse, .wheel-idle, .wheel-retry-idle { animation: none; }
-  .wheel-retry-idle { rotate: var(--spin-to); }
-  .sale-title-enter, .kit-card-enter, .kit-title-enter, .discount-enter { animation: none; }
-  .wheel-spinning { animation: wheel-spin-reduced var(--wheel-spin-duration) linear both; }
-  .spin-hit-area, .cta-hit-area { visibility: visible; }
-  .hand-click { animation: none; opacity: 0; }
-  .hand-exit { animation: none; opacity: 0; }
-  .winning-title { animation: none; opacity: 1; transform: none; scale: 1; }
-}
+
 
 .end-scene-fade {
   opacity: 0;
   transition: opacity 500ms ease-out;
 }
 .end-scene-fade.is-visible { opacity: 1; }
-
-@media (prefers-reduced-motion: reduce) {
-  .result-logo-enter, .offer-cta-enter.animate-scale-pulse {
-    animation: benefit-enter 300ms ease-out both;
-    transform: none;
-    scale: 1;
-    will-change: opacity;
-  }
-  .end-scene-fade { transition: none; }
-}

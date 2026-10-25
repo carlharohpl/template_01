@@ -2,7 +2,7 @@
 
 @keyframes scale-pulse {
   0%, 100% { scale: 1; }
-  50% { scale: 1.12; }
+  50% { scale: 1.2; }
 }
 
 .animate-scale-pulse {
@@ -194,29 +194,10 @@ main[data-phase="loading"] .scene-entrance { animation-play-state: paused; }
   from, to { rotate: var(--spin-to); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .scene-entrance {
-    animation: none;
-    opacity: 1;
-    transform: none;
-    scale: 1;
-    clip-path: none;
-  }
-  .animate-scale-pulse, .cta-enter.animate-scale-pulse, .wheel-idle { animation: none; }
-  .wheel-spinning { animation: wheel-spin-reduced var(--wheel-spin-duration) linear both; }
-  .spin-hit-area, .cta-hit-area { visibility: visible; }
-  .hand-click { animation: none; opacity: 0; }
-  .hand-exit { animation: none; opacity: 0; }
-  .animate-confetti-burst { animation: none; opacity: 0; }
-  .winning-title { animation: none; opacity: 1; transform: none; scale: 1; }
-}
+
 
 .end-scene-fade {
   opacity: 0;
   transition: opacity 500ms ease-out;
 }
 .end-scene-fade.is-visible { opacity: 1; }
-
-@media (prefers-reduced-motion: reduce) {
-  .end-scene-fade { transition: none; }
-}
