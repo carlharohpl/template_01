@@ -240,6 +240,16 @@ Prefer Yarn: `yarn dev`, `yarn build`, `yarn preview`, `yarn lint` (both lockfil
 - Actual final HTML max **5,000,000 bytes**, not gzip/5MiB; fail above with size+limit. Target **<=4,900,000 bytes**, retain warning above target, report delivered bytes (decimal MB optional).
 - Compression is NOT automatic: keep recoverable originals outside output, optimize largest working-copy media, rebuild/revalidate to target. Preserve quality/transparency/proportions/display dimensions, audio content/timing, required assets/SFX/gameplay/end scene. Never remove required content/recompress the only original repeatedly; review lossy quality, report constraints if target cannot be met acceptably.
 
+### Local preview: serve the actual export
+
+**STRICTLY REQUIRED: Preserve `localCreativePreview()` in `vite.config.js`.** Under the Vite development server, GET/HEAD `/`, `/index.html`, and `/creative.html` serve the exact built `index.html` from this project's configured output directory (default `dist`), BEFORE Vite's HTML transformation. No `/@vite/client`, React Refresh, separate source imports, or checker-suppression patches in these responses. Preserve HTML content type, byte length, and `Cache-Control: no-store`.
+
+- `/dev.html` retains live source editing/HMR by internally routing to Vite's source index, preserving query parameters. Its development dependencies are expected; use the export routes for self-contained-asset checks. Do not replace or remove this development route.
+- Export preview is the LAST BUILD, not live source or an automatic build. After source changes, run `yarn build` / `npm run build` under the title rule, then reload/recheck. Missing output returns 503 with build instructions; other read failures return 500. Never silently fall back to development HTML or claim an old build reflects new edits.
+- Route by pathname, never a hardcoded host/port. Use the URL printed by Vite: 5173, 5174, 5175, or another available/configured port must behave identically. Preserve query parameters, including conditional calendar previews. Each project serves its own output; another project needs this configuration to inherit the behavior.
+- Preserve the local-only empty `/mraid.js` response for dev/preview; it must not create a fake bridge or enter production exports. Local preview changes must not weaken packaging, tracking, Base64, or size validation.
+- Verify exact response equality to the built file, root/alias/query routes, GET/HEAD/no-store, no development imports on export routes, HMR on `/dev.html`, missing-output handling, and operation on another available port. This server setup is permanent infrastructure and survives demo resets.
+
 ## 11. Required verification and resets
 
 Run checks relevant to changed behavior; fix available-check failures, lint/rebuild runtime changes and affected exports under title rule. Report unavailable browser/device/host coverage and unresolved differences. Desktop/emulation/screenshots/fixtures do not prove real-device smoothness or full supplied-card flow; distinguish local response substitution from an actual AppLovin upload. Missing device access never waives implementation requirements.
