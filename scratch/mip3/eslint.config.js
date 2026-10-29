@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'dist-endscene']),
+  globalIgnores(['dist']),
   { files: ['src/hooks/base64Packaging.js'], languageOptions: { globals: globals.node } },
   {
     files: ['**/*.{js,jsx}'],

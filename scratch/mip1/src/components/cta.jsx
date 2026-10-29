@@ -1,10 +1,10 @@
 import cta from "../assets/img/cta.webp";
 
 // Keep the shared raw-inline MRAID guard and destination handling in index.html.
-// eslint-disable-next-line react-refresh/only-export-components -- shared clickthrough entry point
-export const openClickthrough = () => {
+// eslint-disable-next-line react-refresh/only-export-components -- shared destination entry point
+export const openDestination = () => {
   console.log("CTA clicked");
-  window.__mip.openClickthrough();
+  window.__mip.openDestination();
 };
 
 export const Cta = () => (
@@ -22,7 +22,7 @@ export const Cta = () => (
       className="im8-cta-hit-enter absolute left-1/2 top-[1638.6px] z-40 h-[172.8px] w-[841.2px] -translate-x-1/2 cursor-pointer rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4"
       onClick={(event) => {
         event.stopPropagation();
-        openClickthrough();
+        openDestination();
       }}
     />
   </>

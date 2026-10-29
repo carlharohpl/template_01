@@ -1,6 +1,6 @@
-import { openClickthrough } from "../components/cta";
+import { openDestination } from "../components/cta";
 
-export function handleMraidClick() { openClickthrough(); }
+export function handleMraidClick() { openDestination(); }
 
 export function setupMraidViewability(handleViewableChange) {
   if (typeof window === "undefined") return undefined;

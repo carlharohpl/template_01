@@ -1,0 +1,52 @@
+@import 'tailwindcss';
+@font-face { font-family: 'Sofia Pro'; src: url('./assets/fonts/Sofia Pro Bold Az.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100dvh; margin: 0; overflow: hidden; overscroll-behavior: none; background: #f7eeeb; }
+body { -webkit-tap-highlight-color: transparent; }
+button { padding: 0; border: 0; background: none; font: inherit; cursor: pointer; }
+img { display: block; user-select: none; -webkit-user-drag: none; }
+.plinko-logo { animation: logo-enter 650ms cubic-bezier(.16,1,.3,1) backwards paused; }
+.plinko-heading { animation: headline-enter 600ms cubic-bezier(.16,1,.3,1) 120ms backwards paused; }
+.ball-counter { animation: counter-enter 420ms cubic-bezier(.2,.75,.25,1) 240ms backwards paused; }
+.pegboard { animation: pegs-enter 650ms cubic-bezier(.16,1,.3,1) 320ms backwards paused; }
+.result-slot { animation: slot-enter 460ms cubic-bezier(.16,1,.3,1) 440ms backwards paused; }
+.slot-second { animation-delay: 500ms; }
+.slot-third { animation-delay: 560ms; }
+.slot-fourth { animation-delay: 620ms; }
+.slot-fifth { animation-delay: 680ms; }
+.box-rail { animation: rail-enter 460ms ease-out 440ms backwards paused; }
+.ball-enter { animation: ball-enter 420ms ease-out 740ms backwards paused; }
+.entrance-running .ball-enter { animation-play-state: running; }
+.entrance-running .asset-enter { animation-play-state: running; }
+.aim-hand { opacity: 0; animation: hand-tap 1600ms ease-in-out infinite paused; transition: opacity 180ms ease-out; }
+.aim-hand.hand-visible { opacity: 1; animation-play-state: running; }
+.drop-ripple { visibility: hidden; animation: drop-ripple 1600ms ease-out infinite paused; }
+.drop-ripple.is-ready { visibility: visible; animation-play-state: running; }
+.scene-paused .drop-ripple { animation-play-state: paused; }
+.animate-scale-pulse { animation: cta-enter 450ms ease-out 860ms both paused, scale-pulse 1600ms ease-in-out 1310ms infinite paused; }
+.entrance-running .animate-scale-pulse { animation-play-state: running; }
+.shop-cta { visibility: hidden; }
+.entrance-running .shop-cta { visibility: visible; }
+.scene-background, .gameplay-surface { transition: filter 650ms ease-out; }
+.is-won .scene-background { filter: blur(calc(18px * var(--ui-scale, 1))); }
+.plinko[data-phase='won'] .gameplay-surface { filter: blur(18px); }
+.win-overlay { animation: win-fade 650ms ease-out both; }
+.win-message { animation: win-fade 500ms ease-out 220ms both; }
+.scene-paused .asset-enter, .scene-paused .ball-enter, .scene-paused .aim-hand, .scene-paused .animate-scale-pulse, .scene-paused .win-overlay, .scene-paused .win-message { animation-play-state: paused; }
+.end-scene-fade { opacity: 0; transition: opacity 500ms ease-out; }
+.end-scene-fade:not(.is-visible) { pointer-events: none; }
+.end-scene-fade.is-visible { opacity: 1; }
+@keyframes logo-enter { from { opacity: 0; transform: translateY(-22px) scale(1.035); } to { opacity: 1; transform: none; } }
+@keyframes headline-enter { from { opacity: 0; transform: perspective(900px) translateY(28px) rotateX(-8deg); } to { opacity: 1; transform: none; } }
+@keyframes counter-enter { from { opacity: 0; transform: scale(.86); } to { opacity: 1; transform: none; } }
+@keyframes pegs-enter { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes slot-enter { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes rail-enter { from { opacity: 0; transform: scaleX(.96); } to { opacity: 1; transform: none; } }
+@keyframes cta-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ball-enter { from { opacity: 0; scale: .75; } to { opacity: 1; scale: 1; } }
+@keyframes drop-ripple { 0% { transform: scale(.6); opacity: .65; } 85%, 100% { transform: scale(1.45); opacity: 0; } }
+@keyframes scale-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+@keyframes hand-tap { 0%, 100% { transform: translate(6px, 8px) scale(1); } 42% { transform: translate(-20px, -22px) scale(1); } 56% { transform: translate(-24px, -25px) scale(.94); } 70% { transform: translate(-20px, -22px) scale(1); } }
+@keyframes win-fade { from { opacity: 0; } to { opacity: 1; } }
+

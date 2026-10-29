@@ -2,26 +2,178 @@
 /* Keep scene utilities included when component files are replaced during HMR. */
 @source "./components";
 
-@font-face {
-  font-family: Jost;
-  src: url("./assets/fonts/Jost-Regular.ttf") format("truetype");
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
+/* Memowrite: each supplied composite retains its artwork and its own motion. */
+@keyframes memo-paper-enter {
+  0% { opacity: 0; transform: translateY(55px) rotate(-1.5deg) scale(.96); }
+  75% { opacity: 1; transform: translateY(-4px) rotate(.2deg) scale(1.005); }
+  100% { opacity: 1; transform: none; }
 }
-
-/* ExpressVPN keeps the scratch grid stationary throughout preparation and input. */
-@keyframes ev-logo-enter {
-  from { opacity: 0; transform: perspective(800px) rotateX(-35deg) translateY(-18px); }
+.memo-paper-enter {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: memo-paper-enter 720ms cubic-bezier(.16,1,.3,1) backwards;
+}
+.memo-coating { opacity: 1; transition: opacity 500ms ease-out; }
+.memo-coating.is-complete { opacity: 0; }
+@keyframes memo-discount-pop {
+  0% { transform: none; }
+  44% { transform: translateY(-7px) scale(1.1); }
+  74% { transform: translateY(2px) scale(1.015); }
+  100% { transform: none; }
+}
+.memo-discount-pop { animation: memo-discount-pop 650ms cubic-bezier(.22,.8,.3,1) both; }
+.memo-creative:not(.memo-result-running) .memo-discount-pop { animation-play-state: paused; }
+.memo-creative:not(.memo-scratch-ready) .memo-reward { visibility: hidden; }
+@keyframes memo-logo-enter {
+  0% { opacity: 0; transform: perspective(1000px) translateY(-36px) rotateX(-35deg) scale(.92); }
+  76% { opacity: 1; transform: translateY(3px) scale(1.015); }
+  100% { opacity: 1; transform: none; }
+}
+.memo-logo-enter { animation: memo-logo-enter 640ms 100ms cubic-bezier(.16,1,.3,1) both; }
+@keyframes memo-sun-enter {
+  from { opacity: 0; transform: rotate(-30deg) scale(.55); }
   to { opacity: 1; transform: none; }
+}
+@keyframes memo-sun-idle {
+  0%, 100% { transform: none; }
+  25% { transform: rotate(-4deg) scale(1.018); }
+  50% { transform: rotate(0deg) scale(1.035); }
+  75% { transform: rotate(4deg) scale(1.018); }
+}
+.memo-sun {
+  animation: memo-sun-enter 500ms 160ms ease-out backwards,
+    memo-sun-idle 5.2s 660ms ease-in-out infinite;
+}
+@keyframes memo-rainbow-enter {
+  0% { opacity: 0; transform: translate(28px,-24px) rotate(14deg) scale(.88); }
+  72% { opacity: 1; transform: translate(-3px,2px) rotate(-2deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes memo-rainbow-idle {
+  0%, 100% { transform: none; }
+  50% { transform: translateY(-7px) rotate(-3deg); }
+}
+.memo-rainbow {
+  animation: memo-rainbow-enter 520ms 220ms ease-out backwards,
+    memo-rainbow-idle 4.6s 740ms ease-in-out infinite;
+}
+@keyframes memo-heart-enter {
+  0% { opacity: 0; transform: translate(var(--heart-enter-x,0px),var(--heart-enter-y,-15px)) scale(.3) rotate(var(--heart-enter-turn,-18deg)); }
+  70% { opacity: 1; transform: scale(1.08) rotate(3deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes memo-heart-idle {
+  0%, 100% { transform: none; }
+  50% { transform: translateY(var(--heart-float,-9px)) rotate(var(--heart-turn,5deg)) scale(1.05); }
+}
+.memo-heart-top {
+  animation: memo-heart-enter 420ms 240ms ease-out backwards,
+    memo-heart-idle 3.7s 660ms ease-in-out infinite;
+}
+.memo-hearts-left {
+  --heart-float: -12px; --heart-turn: -4deg;
+  --heart-enter-x: -22px; --heart-enter-y: 14px; --heart-enter-turn: -24deg;
+  animation: memo-heart-enter 450ms 410ms ease-out backwards,
+    memo-heart-idle 4.3s 860ms ease-in-out infinite;
+}
+.memo-hearts-right {
+  --heart-float: 7px; --heart-turn: 4deg;
+  --heart-enter-x: 22px; --heart-enter-y: 20px; --heart-enter-turn: 24deg;
+  animation: memo-heart-enter 480ms 490ms ease-out backwards,
+    memo-heart-idle 3.3s 970ms ease-in-out infinite;
+}
+@keyframes memo-cloud-enter {
+  from { opacity: 0; transform: translateX(var(--cloud-from,-22px)); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes memo-cloud-idle {
+  0%, 100% { transform: none; }
+  50% { transform: translate(4px,-4px); }
+}
+.memo-clouds-left {
+  animation: memo-cloud-enter 430ms 300ms ease-out backwards,
+    memo-cloud-idle 5.3s 730ms ease-in-out infinite;
+}
+.memo-clouds-right {
+  --cloud-from: 22px;
+  animation: memo-cloud-enter 460ms 350ms ease-out backwards,
+    memo-cloud-idle 6.1s 810ms ease-in-out infinite;
+}
+@keyframes memo-instruction-enter {
+  from { opacity: 0; transform: translateY(24px) rotate(-3deg) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+.memo-instruction-enter { animation: memo-instruction-enter 480ms 240ms ease-out both; }
+@keyframes memo-surprise-enter {
+  0% { opacity: 0; transform: translateY(18px) rotate(-6deg) scale(.76); }
+  68% { opacity: 1; transform: translateY(-3px) rotate(1deg) scale(1.035); }
+  86% { opacity: 1; transform: translateY(1px) rotate(-.3deg) scale(.995); }
+  100% { opacity: 1; transform: none; }
+}
+.memo-surprise-enter { animation: memo-surprise-enter 620ms 320ms ease-out both; }
+@keyframes memo-cta-enter {
+  0% { opacity: 0; transform: translateY(38px); }
+  74% { opacity: 1; transform: translateY(-4px); }
+  100% { opacity: 1; transform: none; }
+}
+.memo-cta-enter.animate-scale-pulse {
+  animation: memo-cta-enter 540ms 440ms ease-out both,
+    scale-pulse 1.6s 980ms ease-in-out infinite;
+}
+.memo-cta-hit-enter { animation: memo-cta-enter 540ms 440ms ease-out both; }
+@keyframes memo-disclaimer-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.memo-disclaimer-enter { animation: memo-disclaimer-enter 400ms 500ms ease-out both; }
+@keyframes memo-hand-scratch {
+  0%, 8%, 100% { transform: translateX(var(--guide-1-x,-5px)) rotate(-2deg); }
+  27% { transform: translateX(var(--guide-2-x,-385px)) rotate(-6deg); }
+  46% { transform: translateX(var(--guide-3-x,35px)) rotate(2deg); }
+  65% { transform: translateX(var(--guide-4-x,-405px)) rotate(-5deg); }
+  84%, 96% { transform: translateX(var(--guide-5-x,-35px)) rotate(1deg); }
+}
+/* Keep descending through each rounded turn instead of stopping both axes. */
+@keyframes memo-hand-glide {
+  0%, 8%, 100% { translate: 0 var(--guide-1-y,28px); }
+  27% { translate: 0 var(--guide-2-y,128px); }
+  46% { translate: 0 var(--guide-3-y,258px); }
+  65% { translate: 0 var(--guide-4-y,398px); }
+  84%, 96% { translate: 0 var(--guide-5-y,508px); }
+}
+@keyframes memo-hand-fade {
+  0%, 96%, 100% { opacity: 0; }
+  8%, 84% { opacity: 1; }
+}
+.memo-hand { opacity: 0; transform-origin: 32px 74px; }
+.memo-hand.is-guiding {
+  animation: memo-hand-scratch 3s cubic-bezier(.37,0,.63,1) infinite both,
+    memo-hand-glide 3s linear infinite both,
+    memo-hand-fade 3s ease-in-out infinite both;
+}
+.memo-hand[data-scratching="true"] {
+  animation: none;
+  opacity: 1;
+  transform: none;
+  translate: var(--scratch-hand-x,0px) var(--scratch-hand-y,0px);
+}
+.memo-creative:not(.memo-running) [class*="memo-"] { animation-play-state: paused; }
+
+/* Each foreground asset enters independently; the canvas and background stay still. */
+@keyframes ev-logo-enter {
+  0% { opacity: 0; transform: perspective(1000px) translateY(-120px) rotateX(-75deg); }
+  72% { opacity: 1; transform: perspective(1000px) translateY(8px) rotateX(7deg); }
+  100% { opacity: 1; transform: none; }
 }
 @keyframes ev-headline-enter {
-  from { opacity: 0; transform: translateX(-35px); }
-  to { opacity: 1; transform: none; }
+  0% { opacity: 0; transform: translate(-190px, 20px) rotate(-7deg); }
+  74% { opacity: 1; transform: translate(12px, -3px) rotate(1deg); }
+  100% { opacity: 1; transform: none; }
 }
 @keyframes ev-cta-enter {
-  from { opacity: 0; transform: translateY(22px) scaleX(.95); }
-  to { opacity: 1; transform: none; }
+  0% { opacity: 0; transform: translateY(90px) scaleX(.78); }
+  72% { opacity: 1; transform: translateY(-7px) scaleX(1.025); }
+  100% { opacity: 1; transform: none; }
 }
 @keyframes ev-hand-scratch {
   /* Fade fully before changing cards, so the guide never sweeps over a gutter. */
@@ -42,15 +194,30 @@
   82%, 90% { opacity: 1; transform: translate(-80px, -60px) rotate(-8deg); }
   86% { opacity: 1; transform: translate(-20px, 15px) rotate(3deg); }
 }
-.ev-logo-enter { animation: ev-logo-enter 550ms cubic-bezier(.16,1,.3,1) both; }
-.ev-headline-enter { animation: ev-headline-enter 500ms 90ms ease-out both; }
+.ev-logo-enter { animation: ev-logo-enter 700ms cubic-bezier(.16,1,.3,1) both; }
+.ev-headline-enter { animation: ev-headline-enter 650ms 120ms cubic-bezier(.16,1,.3,1) both; }
 .ev-hand-guide { animation: ev-hand-scratch 10s 1040ms ease-in-out infinite both; }
-.ev-cta-enter.animate-scale-pulse { animation: ev-cta-enter 500ms 600ms ease-out both, scale-pulse 1.6s 1100ms ease-in-out infinite; }
-.ev-cta-hit-enter { animation: ev-cta-enter 500ms 600ms ease-out both; }
+/* Keep the guide inside the single supplied scratch card. */
+@keyframes ev-single-hand-scratch {
+  0%, 100% { transform: none; }
+  30% { transform: translate(-220px, -140px) rotate(-8deg); }
+  65% { transform: translate(60px, -280px) rotate(4deg); }
+}
+@keyframes ev-single-hand-appear {
+  from { opacity: 0; scale: .45; }
+  to { opacity: 1; scale: 1; }
+}
+.ev-single-hand-guide {
+  animation: ev-single-hand-appear 380ms 960ms cubic-bezier(.16,1,.3,1) both,
+    ev-single-hand-scratch 2.8s 1340ms ease-in-out infinite;
+}
+.ev-cta-enter.animate-scale-pulse { animation: ev-cta-enter 560ms 540ms cubic-bezier(.16,1,.3,1) both, scale-pulse 1.6s 1100ms ease-in-out infinite; }
+.ev-cta-hit-enter { animation: ev-cta-enter 560ms 540ms cubic-bezier(.16,1,.3,1) both; }
 /* Each coating arrives independently; the rewards stay covered until settling. */
 @keyframes ev-card-one-enter {
-  from { opacity: 0; transform: translate(-70px, 0) rotate(-4deg) scale(.94); }
-  to { opacity: 1; transform: none; }
+  0% { opacity: 0; transform: perspective(1400px) translateY(140px) rotateY(-35deg) scale(.82); }
+  76% { opacity: 1; transform: perspective(1400px) translateY(-9px) rotateY(3deg) scale(1.015); }
+  100% { opacity: 1; transform: none; }
 }
 @keyframes ev-card-two-enter {
   from { opacity: 0; transform: perspective(1000px) rotateY(-45deg) translateX(35px); }
@@ -66,13 +233,14 @@
   100% { opacity: 1; transform: none; }
 }
 .ev-card-enter { transform-box: fill-box; transform-origin: center; }
-.ev-card-enter[data-section="0"] { animation: ev-card-one-enter 560ms 100ms cubic-bezier(.16,1,.3,1) both; }
+.ev-card-enter[data-section="0"] { animation: ev-card-one-enter 720ms 240ms cubic-bezier(.16,1,.3,1) both; }
 .ev-card-enter[data-section="1"] { animation: ev-card-two-enter 590ms 160ms cubic-bezier(.16,1,.3,1) both; }
 .ev-card-enter[data-section="2"] { animation: ev-card-three-enter 560ms 230ms cubic-bezier(.16,1,.3,1) both; }
 .ev-card-enter[data-section="3"] { animation: ev-card-four-enter 620ms 290ms cubic-bezier(.22,.8,.3,1) both; }
 .ev-creative:not(.ev-running) .ev-logo-enter,
 .ev-creative:not(.ev-running) .ev-headline-enter,
 .ev-creative:not(.ev-running) .ev-hand-guide,
+.ev-creative:not(.ev-running) .ev-single-hand-guide,
 .ev-creative:not(.ev-running) .ev-card-enter,
 .ev-creative:not(.ev-running) .ev-cta-enter,
 .ev-creative:not(.ev-running) .ev-cta-hit-enter { animation-play-state: paused; }
@@ -88,29 +256,38 @@
   opacity: 0;
   transition: opacity 450ms ease-out;
 }
-/* Additional white wash on the final offer screen. */
+/* Match the reference's soft white wash without fading the offer panel or logo. */
 .ev-end-wash { background: rgba(255, 255, 255, .40); }
 /* Background blur amounts are design-canvas pixels, before responsive scaling. */
-.ev-completed-canvas { filter: blur(8px); }
+.ev-completed-canvas { filter: blur(9px); opacity: .85; }
 .ev-muted-reward { filter: blur(10px); opacity: .25; }
 /* The end scene blurs its canvas once; keep reward lettering faint but readable. */
 .ev-completed-canvas .ev-muted-reward { filter: none; }
 .ev-result .ev-result-backdrop { opacity: 1; }
 @keyframes ev-congratulations-enter {
-  from { opacity: 0; transform: perspective(1000px) rotateX(-65deg) translateY(-30px); }
-  to { opacity: 1; transform: none; }
+  0% { opacity: 0; transform: perspective(1100px) translateY(-85px) rotateX(-80deg) scale(.86); }
+  70% { opacity: 1; transform: perspective(1100px) translateY(7px) rotateX(8deg) scale(1.025); }
+  100% { opacity: 1; transform: none; }
 }
 @keyframes ev-youve-got-enter {
-  from { opacity: 0; transform: translateX(45px); }
-  to { opacity: 1; transform: none; }
+  0% { opacity: 0; transform: translateX(150px) rotate(5deg); }
+  75% { opacity: 1; transform: translateX(-8px) rotate(-1deg); }
+  100% { opacity: 1; transform: none; }
 }
+/* Celebrate the already-visible offer without hiding or remounting it. */
+@keyframes ev-offer-celebrate {
+  0%, 100% { transform: none; }
+  42% { transform: translateY(-24px) rotate(-2deg) scale(1.06); }
+  72% { transform: translateY(5px) rotate(.7deg) scale(.99); }
+}
+.ev-offer-celebrate { animation: ev-offer-celebrate 760ms 120ms cubic-bezier(.22,.8,.3,1) both; }
 @keyframes ev-reward-enter {
   0% { opacity: 0; transform: perspective(1200px) translateY(100px) rotateY(-18deg) scale(.82); }
   68% { opacity: 1; transform: translateY(-8px) rotate(1deg) scale(1.025); }
   100% { opacity: 1; transform: none; }
 }
-.ev-congratulations-enter { animation: ev-congratulations-enter 650ms cubic-bezier(.16,1,.3,1) both; }
-.ev-youve-got-enter { animation: ev-youve-got-enter 440ms 160ms ease-out both; }
+.ev-congratulations-enter { animation: ev-congratulations-enter 720ms cubic-bezier(.16,1,.3,1) both; }
+.ev-youve-got-enter { animation: ev-youve-got-enter 560ms 150ms cubic-bezier(.16,1,.3,1) both; }
 .ev-selected-reward {
   animation: ev-reward-enter 780ms 220ms cubic-bezier(.16,1,.3,1) both;
 }
@@ -123,6 +300,7 @@
 .ev-creative:not(.ev-result-running) .ev-congratulations-enter,
 .ev-creative:not(.ev-result-running) .ev-youve-got-enter,
 .ev-creative:not(.ev-result-running) .ev-selected-reward,
+.ev-creative:not(.ev-result-running) .ev-offer-celebrate,
 .ev-creative.ev-result:not(.ev-result-running) .ev-cta-enter,
 .ev-creative.ev-result:not(.ev-result-running) .ev-cta-hit-enter { animation-play-state: paused; }
 @keyframes ev-gentle-enter { from { opacity: 0; } to { opacity: 1; } }
@@ -356,7 +534,8 @@
 [data-scene="end"] [aria-hidden="true"] img { animation-play-state: paused; }
 /* A standalone end card starts with its completed background already settled. */
 .standalone-end-background img,
-.standalone-end-background svg { animation: none; }
+.standalone-end-background svg,
+.standalone-end-background .ev-reveal-date { animation: none; }
 @keyframes wolt-end-slide-up {
   from { transform: translateY(1100px); }
   to { transform: none; }

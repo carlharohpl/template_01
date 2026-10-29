@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { openClickthrough } from "./cta";
+import { openDestination } from "./cta";
 import endSceneHtml from "../assets/endscene/endscene.html?endcard";
 
 // Supply the host's real bridge before the provided creative starts its runtime.
@@ -7,9 +7,6 @@ const bridgeScript = `<script>
   try {
     window.mraid = parent.mraid || window.mraid;
     window.clickTag = parent.clickTag || window.clickTag;
-    window.clickTag1 = parent.clickTag1 || window.clickTag1;
-    window.clickthrough = parent.clickthrough || window.clickthrough;
-    window.clickThrough = parent.clickThrough || window.clickThrough;
   } catch (error) {}
 </script>`;
 const endSceneDocument = endSceneHtml.replace("</head>", `${bridgeScript}</head>`);
@@ -78,7 +75,7 @@ const EndScene = ({ onReady }) => {
         className="absolute inset-0 z-30 h-full w-full cursor-pointer bg-transparent focus-visible:outline-4 focus-visible:-outline-offset-4"
         onClick={(event) => {
           event.stopPropagation();
-          openClickthrough();
+          openDestination();
         }}
       />
     </section>

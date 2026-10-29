@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { calendarClock, subscribeCalendarClock } from "./hooks/calendarClock";
 import useScaleUI from "./hooks/useScaleUI";
 import useSound, { handleUnlockGesture, playSound, stopSound, waitForSoundCompletion } from "./hooks/useSound";
-import { Cta, openClickthrough } from "./components/cta";
+import { Cta, openDestination } from "./components/cta";
 import EndScene from "./components/endscene";
 import logo from "./assets/img/logo.webp";
 import bg from "./assets/img/bg.webp";
@@ -483,7 +483,7 @@ const App = () => {
           onClick={(event) => {
             event.stopPropagation();
             if (event.detail === 0 || event.button !== 0) return;
-            openClickthrough();
+            openDestination();
           }}
         />
       )}

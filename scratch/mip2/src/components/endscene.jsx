@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Cta, openClickthrough } from "./cta";
+import { Cta, openDestination } from "./cta";
 import logo from "../assets/endscene/logo.webp";
 import heading from "../assets/endscene/subtitle1.webp";
 import code from "../assets/endscene/code.webp";
@@ -101,7 +101,7 @@ const EndScene = ({ onReady }) => {
         className="absolute inset-0 z-30 h-full w-full cursor-pointer touch-manipulation bg-transparent focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-white"
         onClick={(event) => {
           event.stopPropagation();
-          openClickthrough();
+          openDestination();
         }}
       />
       {visible && CONFETTI.map((piece) => (

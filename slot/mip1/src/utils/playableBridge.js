@@ -1,7 +1,7 @@
-import { openClickthrough } from "../components/cta";
+import { openDestination } from "../components/cta";
 
 export const PlayableBridge = {
   ready() { window.gameReady?.(); window.mraid?.signalReady?.(); },
   end() { window.gameEnd?.(); },
-  click: openClickthrough,
+  click: openDestination,
 };

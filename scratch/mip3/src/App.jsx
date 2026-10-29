@@ -3,39 +3,38 @@ import useScaleUI from "./hooks/useScaleUI";
 import useSound, { handleUnlockGesture, playSound, stopSound, waitForSoundCompletion } from "./hooks/useSound";
 import scratchingSound from "./assets/sounds/scratching.mp3";
 import gameWinSound from "./assets/sounds/gamewin5.mp3";
-import endSceneSound from "./assets/sounds/endscene3.wav";
+import endSceneSound from "./assets/sounds/endscene1.mp3";
 import { Cta } from "./components/cta";
 import EndScene from "./components/endscene";
-import background from "./assets/img/bg.webp";
-import logo from "./assets/img/logo.webp";
-import scratch from "./assets/img/scratch.webp";
-import save80 from "./assets/img/promo1.webp";
-import guarantee from "./assets/img/promo2.webp";
-import vpn from "./assets/img/promo3.webp";
-import save73 from "./assets/img/promo4.webp";
-import headline from "./assets/img/subtitle1.webp";
-import congratulations from "./assets/img/subtitle2.webp";
-import youveGot from "./assets/img/subtitle3.webp";
-import hand from "./assets/img/hand.webp";
-import cta from "./assets/img/cta.webp";
+import background from "./assets/img/crumpled-paper.webp";
+import logo from "./assets/img/memowrite-logo.webp";
+import scratch from "./assets/img/scratch-card-covered.webp";
+import reward from "./assets/img/scratch-card-revealed.webp";
+import headline from "./assets/img/erase-instruction.webp";
+import surprise from "./assets/img/surprise.webp";
+import hand from "./assets/img/hand-eraser.webp";
+import sun from "./assets/img/sun.webp";
+import rainbow from "./assets/img/rainbow-stars.webp";
+import cloudsLeft from "./assets/img/clouds-left.webp";
+import cloudsRight from "./assets/img/clouds-right.webp";
+import heart from "./assets/img/heart-small.webp";
+import heartsLeft from "./assets/img/hearts-left.webp";
+import heartsRight from "./assets/img/hearts-right.webp";
+import disclaimer from "./assets/img/offer-disclaimer.webp";
+import cta from "./assets/img/claim-discount.webp";
 
-const CELL_WIDTH = 408;
-const CELL_HEIGHT = 600;
-const SCRATCH_WIDTH = 838;
-const SCRATCH_HEIGHT = 1220;
-const MASK_WIDTH = 168;
-const MASK_HEIGHT = 244;
-const BRUSH_WIDTH = 110;
+const CELL_WIDTH = 953;
+const CELL_HEIGHT = 1026;
+const SCRATCH_WIDTH = CELL_WIDTH;
+const SCRATCH_HEIGHT = CELL_HEIGHT;
+const MASK_WIDTH = 191;
+const MASK_HEIGHT = 206;
+const BRUSH_WIDTH = 150;
 const REVEAL_THRESHOLD = 0.8;
 const REVEAL_FADE_MS = 500;
 const REWARD_HOLD_MS = 2000;
-const END_SCENE_ENABLED = true;
-const STANDALONE_END_SCENE = END_SCENE_ENABLED && import.meta.env.MODE === "endscene";
 const SECTIONS = [
-  { id: "save80", label: "SAVE 80%", x: 0, y: 0, reveal: save80, position: "left-[121px] top-[465px]" },
-  { id: "save73", label: "SAVE 73%", x: 430, y: 0, reveal: save73, position: "left-[551px] top-[465px]" },
-  { id: "guarantee", label: "30-DAY GUARANTEE", x: 0, y: 620, reveal: guarantee, position: "left-[121px] top-[1085px]" },
-  { id: "vpn", label: "#1 VPN 2026", x: 430, y: 620, reveal: vpn, position: "left-[551px] top-[1085px]" },
+  { id: "discount64", label: "64% OFF", x: 0, y: 0, reveal: reward },
 ];
 const sectionAt = (x, y) => SECTIONS.findIndex((section) =>
   x >= section.x && x < section.x + CELL_WIDTH &&
@@ -44,13 +43,13 @@ const sectionAt = (x, y) => SECTIONS.findIndex((section) =>
 
 const App = () => {
   const { appRef, wrapperRef } = useScaleUI(1080, 1920);
-  const scratchAudio = useSound(STANDALONE_END_SCENE ? null : scratchingSound);
-  const gameWinAudio = useSound(STANDALONE_END_SCENE ? null : gameWinSound, { lowLatency: true });
-  const endSceneAudio = useSound(STANDALONE_END_SCENE ? null : endSceneSound, { lowLatency: true });
+  const scratchAudio = useSound(scratchingSound);
+  const gameWinAudio = useSound(gameWinSound, { lowLatency: true });
+  const endSceneAudio = useSound(endSceneSound, { lowLatency: true });
   const scratchSourceRef = useRef(null);
   const gameWinSourceRef = useRef(null);
   const endSceneSourceRef = useRef(null);
-  const endScenePlayedRef = useRef(false);
+  const endSceneCueStartedRef = useRef(false);
   const revealFrameRef = useRef(null);
   const scratchIdleRef = useRef(null);
   const scratchSurfaceRef = useRef(null);
@@ -58,61 +57,71 @@ const App = () => {
   const liveScratchRef = useRef([]);
   const scratchFrameRef = useRef(null);
   const scratchRef = useRef(null);
-  const completedRef = useRef(STANDALONE_END_SCENE);
+  const completedRef = useRef(false);
   const [ready, setReady] = useState(false);
-  const [entrancesRunning, setEntrancesRunning] = useState(STANDALONE_END_SCENE);
-  const [scratchReady, setScratchReady] = useState(STANDALONE_END_SCENE);
+  const [coatingLoaded, setCoatingLoaded] = useState(false);
+  const [entrancesRunning, setEntrancesRunning] = useState(false);
+  const [scratchReady, setScratchReady] = useState(false);
   const [resultRunning, setResultRunning] = useState(false);
   const [selectedReward, setSelectedReward] = useState(null);
-  const [scene, setScene] = useState(STANDALONE_END_SCENE ? "end" : "initial");
-  const [completedSections, setCompletedSections] = useState(
-    STANDALONE_END_SCENE ? SECTIONS.map(() => true) : [],
-  );
+  const [scene, setScene] = useState("initial");
+  const [completedSections, setCompletedSections] = useState([]);
+  const [guiding, setGuiding] = useState(false);
+  const handRef = useRef(null);
+  const guideIdleRef = useRef(null);
+  const lastInteractionRef = useRef(0);
 
   useEffect(() => {
-    if (STANDALONE_END_SCENE) return;
     let cancelled = false;
     let prepared = false;
     const pendingImages = [];
+    let coatingImage;
     const prepare = () => {
-      if (cancelled || prepared) return;
+      if (cancelled || (prepared && scratchRef.current?.sections[0].total > 0)) return;
       prepared = true;
       window.clearTimeout(fallback);
-      // Use the same sampled coverage model as the original scratch mechanic.
-      // The rounded inset excludes each card's permanent border and the gutters.
+      // Keep the existing sampled SVG-mask mechanic. The supplied coating is a
+      // complete paper composite: count only its dark brush pixels, not paper,
+      // transparent edges, border, or bottom doodles. Canvas is read once only.
       const eligible = new Uint8Array(MASK_WIDTH * MASK_HEIGHT);
       const sections = SECTIONS.map(() => ({
         total: 0, erased: 0, complete: false, settledPath: "", livePath: "", nextPath: "",
       }));
-      for (let i = 0; i < eligible.length; i += 1) {
-        const x = (i % MASK_WIDTH + 0.5) * SCRATCH_WIDTH / MASK_WIDTH;
-        const y = (Math.floor(i / MASK_WIDTH) + 0.5) * SCRATCH_HEIGHT / MASK_HEIGHT;
-        const index = sectionAt(x, y);
-        if (index === -1) continue;
-        const localX = x - SECTIONS[index].x;
-        const localY = y - SECTIONS[index].y;
-        const dx = localX - Math.max(48, Math.min(CELL_WIDTH - 48, localX));
-        const dy = localY - Math.max(48, Math.min(CELL_HEIGHT - 48, localY));
-        if (dx * dx + dy * dy <= 36 * 36) {
-          eligible[i] = index + 1;
-          sections[index].total += 1;
+      if (coatingImage?.naturalWidth) {
+        const sample = document.createElement("canvas");
+        sample.width = MASK_WIDTH;
+        sample.height = MASK_HEIGHT;
+        const context = sample.getContext("2d", { willReadFrequently: true });
+        context.drawImage(coatingImage, 0, 0, MASK_WIDTH, MASK_HEIGHT);
+        const pixels = context.getImageData(0, 0, MASK_WIDTH, MASK_HEIGHT).data;
+        for (let i = 0; i < eligible.length; i += 1) {
+          const x = (i % MASK_WIDTH + 0.5) * SCRATCH_WIDTH / MASK_WIDTH;
+          const y = (Math.floor(i / MASK_WIDTH) + 0.5) * SCRATCH_HEIGHT / MASK_HEIGHT;
+          if (x > 40 && x < 910 && y > 180 && y < 825 &&
+              pixels[i * 4 + 3] > 128 && pixels[i * 4] < 140) {
+            eligible[i] = 1;
+            sections[0].total += 1;
+          }
         }
       }
       scratchRef.current = {
         eligible, sections, activeSection: null, covered: new Uint8Array(eligible.length), animationIndex: 0,
         pointerId: null, previous: null, bounds: null,
       };
+      setCoatingLoaded(sections[0].total > 0);
       setReady(true);
     };
     const fallback = window.setTimeout(prepare, 1800);
     Promise.allSettled([
-      background, logo, scratch, save80, save73, guarantee, vpn, headline,
-      congratulations, youveGot, hand, cta,
+      background, logo, scratch, reward, headline, surprise, hand, cta,
+      sun, rainbow, cloudsLeft, cloudsRight, heart, heartsLeft, heartsRight, disclaimer,
     ].map((src) => new Promise((resolve) => {
       const image = new Image();
+      if (src === scratch) coatingImage = image;
       pendingImages.push(image);
       image.onload = () => {
         if (typeof image.decode !== "function") resolve();
+        if (src === scratch && prepared) prepare();
       };
       image.onerror = resolve;
       image.src = src;
@@ -143,9 +152,8 @@ const App = () => {
   }, [ready]);
 
   useEffect(() => {
-    if (!entrancesRunning || STANDALONE_END_SCENE) return;
+    if (!entrancesRunning || !coatingLoaded) return;
     // Read CSS timing so hit testing starts only once all coatings have settled.
-    // Reduced motion naturally shortens this wait without relying on animation events.
     const duration = Math.max(0, ...Array.from(
       scratchSurfaceRef.current.querySelectorAll("[data-section]"),
       (card) => {
@@ -153,9 +161,20 @@ const App = () => {
         return (parseFloat(style.animationDuration) + parseFloat(style.animationDelay)) * 1000;
       },
     ));
-    const timeout = window.setTimeout(() => setScratchReady(true), duration);
-    return () => window.clearTimeout(timeout);
-  }, [entrancesRunning]);
+    const timeout = window.setTimeout(() => {
+      setScratchReady(true);
+    }, duration);
+    guideIdleRef.current = window.setTimeout(() => {
+      guideIdleRef.current = null;
+      if (!completedRef.current && scratchRef.current?.pointerId === null && lastInteractionRef.current === 0) {
+        setGuiding(true);
+      }
+    }, Math.max(duration, 1000));
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearTimeout(guideIdleRef.current);
+    };
+  }, [entrancesRunning, coatingLoaded]);
 
   useEffect(() => {
     if (scene !== "winning") return;
@@ -185,12 +204,10 @@ const App = () => {
   }, [muteScratching]);
 
   const handleEndSceneReady = useCallback(() => {
-    if (endScenePlayedRef.current) return;
-    endScenePlayedRef.current = true;
-    stopScratching();
-    stopSound(gameWinSourceRef.current);
+    if (endSceneCueStartedRef.current) return;
+    endSceneCueStartedRef.current = true;
     if (!document.hidden) endSceneSourceRef.current = playSound(endSceneAudio);
-  }, [endSceneAudio, stopScratching]);
+  }, [endSceneAudio]);
 
   useEffect(() => {
     if (scene !== "winning" || !resultRunning) return;
@@ -200,7 +217,7 @@ const App = () => {
     }
     const cancel = waitForSoundCompletion(gameWinSourceRef.current, {
       minimumMs: REWARD_HOLD_MS,
-      onComplete: () => { if (END_SCENE_ENABLED) setScene("end"); },
+      onComplete: () => setScene("end"),
     });
     return () => {
       cancel();
@@ -223,6 +240,52 @@ const App = () => {
     };
   }, [scene, stopScratching]);
 
+  const hideGuide = useCallback(() => {
+    window.clearTimeout(guideIdleRef.current);
+    guideIdleRef.current = null;
+    handRef.current?.removeAttribute("data-scratching");
+    setGuiding(false);
+  }, []);
+
+  const scheduleGuide = useCallback(() => {
+    window.clearTimeout(guideIdleRef.current);
+    if (completedRef.current || scratchRef.current?.pointerId !== null) return;
+    guideIdleRef.current = window.setTimeout(() => {
+      guideIdleRef.current = null;
+      const state = scratchRef.current;
+      if (!state || completedRef.current || state.pointerId !== null || document.hidden) return;
+      const targets = [[680, 250], [300, 350], [720, 480], [280, 620], [650, 730]];
+      const remaining = targets.map(() => ({ distance: Infinity, x: 0, y: 0 }));
+      for (let i = 0; i < state.eligible.length; i += 1) {
+        if (!state.eligible[i] || state.covered[i]) continue;
+        const x = (i % MASK_WIDTH + .5) * SCRATCH_WIDTH / MASK_WIDTH;
+        const y = (Math.floor(i / MASK_WIDTH) + .5) * SCRATCH_HEIGHT / MASK_HEIGHT;
+        targets.forEach(([targetX, targetY], index) => {
+          const distance = (x - targetX) ** 2 + (y - targetY) ** 2;
+          if (distance < remaining[index].distance) remaining[index] = { distance, x, y };
+        });
+      }
+      const handImage = handRef.current;
+      if (handImage) {
+        const bounds = scratchSurfaceRef.current.getBoundingClientRect();
+        const canvasBounds = appRef.current.getBoundingClientRect();
+        const scale = bounds.width / SCRATCH_WIDTH;
+        // Resolve the idle sweep from the existing coverage grid once per pause.
+        // CSS owns the motion; these points never change the scratch mask.
+        remaining.forEach(({ distance, x, y }, index) => {
+          if (!Number.isFinite(distance)) return;
+          handImage.style.setProperty(`--guide-${index + 1}-x`,
+            `${(bounds.left - canvasBounds.left) / scale + x - handImage.offsetLeft - 32}px`);
+          handImage.style.setProperty(`--guide-${index + 1}-y`,
+            `${(bounds.top - canvasBounds.top) / scale + y - handImage.offsetTop - 74}px`);
+        });
+      }
+      setGuiding(true);
+    }, Math.max(0, 2000 - (performance.now() - lastInteractionRef.current)));
+  }, [appRef]);
+
+  useEffect(() => () => window.clearTimeout(guideIdleRef.current), []);
+
   const soundWhileScratching = () => {
     if (!scratchSourceRef.current) {
       scratchSourceRef.current = playSound(scratchAudio, { volume: 0.65, loop: true });
@@ -240,21 +303,27 @@ const App = () => {
         handleUnlockGesture(event);
       }
     };
-    const stopAll = () => {
+    const stopAll = (event) => {
       if (revealFrameRef.current !== null) cancelAnimationFrame(revealFrameRef.current);
       revealFrameRef.current = null;
       stopScratching();
+      // Clicking outside the creative can blur the host without starting a
+      // scratch. Keep the idle demonstration in that case.
+      if (event?.type !== "blur" || scratchRef.current?.pointerId !== null) hideGuide();
       stopSound(gameWinSourceRef.current);
       stopSound(endSceneSourceRef.current);
       if (scratchRef.current) {
         scratchRef.current.pointerId = null;
         scratchRef.current.previous = null;
+        scratchRef.current.bounds = null;
       }
     };
-    const handleVisibility = () => { if (document.hidden) stopAll(); };
+    const resumeGuide = () => scheduleGuide();
+    const handleVisibility = () => { if (document.hidden) stopAll(); else resumeGuide(); };
     surface.addEventListener("pointerdown", unlock);
     surface.addEventListener("pointermove", unlock);
     window.addEventListener("blur", stopAll);
+    window.addEventListener("focus", resumeGuide);
     window.addEventListener("pagehide", stopAll);
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
@@ -262,10 +331,11 @@ const App = () => {
       surface.removeEventListener("pointerdown", unlock);
       surface.removeEventListener("pointermove", unlock);
       window.removeEventListener("blur", stopAll);
+      window.removeEventListener("focus", resumeGuide);
       window.removeEventListener("pagehide", stopAll);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [stopScratching]);
+  }, [stopScratching, hideGuide, scheduleGuide]);
 
   const checkProgress = () => {
     const state = scratchRef.current;
@@ -274,6 +344,7 @@ const App = () => {
     if (!section || section.complete) return;
     if (section.erased / section.total >= REVEAL_THRESHOLD) {
       completedRef.current = true;
+      hideGuide();
       // Capture this exact card before the first transition; never replace it.
       setSelectedReward(SECTIONS[state.activeSection]);
       section.complete = true;
@@ -303,7 +374,7 @@ const App = () => {
     const column = Math.floor(x * MASK_WIDTH / SCRATCH_WIDTH);
     const row = Math.floor(y * MASK_HEIGHT / SCRATCH_HEIGHT);
     if (column < 0 || column >= MASK_WIDTH || row < 0 || row >= MASK_HEIGHT ||
-      state.eligible[row * MASK_WIDTH + column] !== state.activeSection + 1) {
+      x < 40 || x > 910 || y < 180 || y > 825) {
       state.previous = null;
       return;
     }
@@ -341,6 +412,7 @@ const App = () => {
       }
     }
     state.previous = { x, y };
+    lastInteractionRef.current = performance.now();
   };
 
   const paintScratch = () => {
@@ -357,7 +429,8 @@ const App = () => {
       scratchFrameRef.current = null;
     }
     const state = scratchRef.current;
-    const section = state?.sections[state.activeSection];
+    if (!state) return;
+    const section = state.sections[state.activeSection];
     if (!section?.livePath) return;
     section.settledPath += section.livePath;
     settledScratchRef.current[state.activeSection].setAttribute("d", section.settledPath);
@@ -370,6 +443,20 @@ const App = () => {
     const section = state.sections[state.activeSection];
     section.nextPath = "";
     for (const sample of samples) eraseAt(sample, bounds);
+    const handImage = handRef.current;
+    if (handImage && state.previous) {
+      // Use the same design-space point as the mask. Anchor the pink eraser's
+      // contact face (32, 74 in the displayed image) to the real pointer.
+      const canvasBounds = appRef.current.getBoundingClientRect();
+      const scale = bounds.width / SCRATCH_WIDTH;
+      handImage.style.setProperty("--scratch-hand-x",
+        `${(bounds.left - canvasBounds.left) / scale + state.previous.x - handImage.offsetLeft - 32}px`);
+      handImage.style.setProperty("--scratch-hand-y",
+        `${(bounds.top - canvasBounds.top) / scale + state.previous.y - handImage.offsetTop - 74}px`);
+      handImage.setAttribute("data-scratching", "true");
+    } else {
+      handImage?.removeAttribute("data-scratching");
+    }
     if (!section.nextPath) return;
     section.livePath += section.nextPath;
     if (scratchFrameRef.current === null) scratchFrameRef.current = requestAnimationFrame(paintScratch);
@@ -387,6 +474,8 @@ const App = () => {
     const row = Math.floor((event.clientY - bounds.top) * MASK_HEIGHT / bounds.height);
     if (state.eligible[row * MASK_WIDTH + column] !== section + 1) return;
     event.preventDefault();
+    hideGuide();
+    lastInteractionRef.current = performance.now();
     commitScratch();
     state.activeSection = section;
     state.animationIndex = 1 - state.animationIndex;
@@ -407,7 +496,7 @@ const App = () => {
     event.preventDefault();
     const samples = event.nativeEvent.getCoalescedEvents?.() || [];
     const state = scratchRef.current;
-    state.bounds ||= event.currentTarget.getBoundingClientRect();
+    state.bounds = event.currentTarget.getBoundingClientRect();
     scratchSamples(samples.length ? samples : [event], state.bounds);
     if (state.previous) soundWhileScratching();
     else muteScratching();
@@ -418,15 +507,17 @@ const App = () => {
     const state = scratchRef.current;
     if (!state || state.pointerId !== event.pointerId) return;
     if (event.type === "pointerup") {
-      state.bounds ||= event.currentTarget.getBoundingClientRect();
+      state.bounds = event.currentTarget.getBoundingClientRect();
       scratchSamples([event], state.bounds);
     }
     checkProgress();
+    handRef.current?.removeAttribute("data-scratching");
     if (completedRef.current) return;
     commitScratch();
     muteScratching();
     state.pointerId = null;
     state.previous = null;
+    scheduleGuide();
     if (event.pointerType !== "touch" && event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -470,6 +561,7 @@ const App = () => {
     const options = { passive: false };
     const onTouch = (event) => handleNativeTouch(event);
     const invalidateBounds = () => {
+      handRef.current?.removeAttribute("data-scratching");
       if (scratchRef.current) {
         scratchRef.current.bounds = null;
         scratchRef.current.previous = null;
@@ -490,69 +582,61 @@ const App = () => {
     };
   }, [wrapperRef]);
 
-  const inputLocked = ["revealed", "winning", "end"].includes(scene);
-  const showingResult = !!selectedReward && scene === "winning";
+  const inputLocked = completedSections[0];
 
   return (
-    <main className="relative h-dvh w-full overflow-hidden overscroll-none bg-[#1c3949] select-none">
+    <main className="relative h-dvh w-full overflow-hidden overscroll-none bg-[#dedede] select-none">
       <div
         ref={wrapperRef}
-        className={`relative h-dvh w-full overflow-hidden overscroll-none ev-creative ${entrancesRunning ? "ev-running" : ""} ${scratchReady ? "ev-scratch-ready" : ""} ${showingResult || scene === "end" ? "ev-result" : ""} ${resultRunning ? "ev-result-running" : ""}`}
+        className={"relative h-dvh w-full overflow-hidden overscroll-none memo-creative " + (entrancesRunning ? "memo-running " : "") + (scratchReady ? "memo-scratch-ready " : "") + (resultRunning ? "memo-result-running" : "")}
         data-scene={scene}
         data-selected-reward={selectedReward?.id || ""}
         data-ready={scratchReady}
       >
         <img
           src={background}
-          alt=""
+          alt="Crumpled paper background"
           className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover select-none"
           draggable="false"
         />
-        <div className="ev-result-backdrop pointer-events-none absolute inset-0 z-[1]" />
         <div className="absolute left-[var(--ui-left,0px)] top-[var(--ui-top,0px)] z-10 h-[var(--ui-height,1920px)] w-[var(--ui-width,1080px)]">
           <div
             ref={appRef}
             inert={scene === "end"}
             aria-hidden={scene === "end"}
-            className={`absolute left-0 top-0 h-[1920px] w-[1080px] origin-top-left scale-[var(--ui-scale,1)] overflow-visible ${scene === "end" ? "ev-completed-canvas" : ""} ${STANDALONE_END_SCENE ? "standalone-end-background" : ""}`}
+            className="absolute left-0 top-0 h-[1920px] w-[1080px] origin-top-left scale-[var(--ui-scale,1)] overflow-visible"
           >
             <img
-              src={logo}
-              alt="ExpressVPN"
-              className={`pointer-events-none absolute left-1/2 top-[94px] z-30 w-[434px] -translate-x-1/2 select-none ev-logo-enter ${scene === "end" ? "invisible" : ""}`}
+              src={scratch}
+              alt="Torn paper with house, tree, and dashed border"
+              className="pointer-events-none absolute left-1/2 top-[491px] z-10 w-[953px] -translate-x-1/2 select-none memo-paper-enter"
               draggable="false"
+              aria-hidden="true"
             />
             <img
-              src={headline}
-              alt="Scratch to reveal your deal"
-              className={`pointer-events-none absolute left-1/2 top-[238px] z-10 w-[660px] -translate-x-1/2 select-none ev-headline-enter ${showingResult ? "invisible" : ""}`}
+              src={reward}
+              alt="64% OFF"
+              className="pointer-events-none absolute left-1/2 top-[491px] z-[15] w-[953px] -translate-x-1/2 select-none [clip-path:inset(180px_43px_201px_40px)] memo-reward"
               draggable="false"
+              aria-hidden={!completedSections[0]}
+              data-reward-card="discount64"
             />
-            {scene === "end" && SECTIONS.map((section) => (
-              <div
-                key={section.id}
-                aria-hidden="true"
-                className={`pointer-events-none absolute ${section.position} z-10 h-[600px] w-[408px] rounded-[48px] bg-white`}
-              />
-            ))}
-            {SECTIONS.map((section, index) => (
+            {scene === "winning" && (
               <img
-                key={section.id}
-                src={section.reveal}
-                alt={section.label}
-                className={`pointer-events-none absolute ${section.position} z-10 w-[408px] select-none ev-grid-reward ${showingResult || scene === "end" ? "ev-muted-reward" : ""} ${showingResult && selectedReward.id === section.id ? "invisible" : ""}`}
+                src={reward}
+                alt="64% OFF reveal celebration"
+                className="pointer-events-none absolute left-1/2 top-[491px] z-[25] w-[953px] -translate-x-1/2 select-none [clip-path:inset(240px_225px_265px_225px)] memo-discount-pop"
                 draggable="false"
-                aria-hidden={!completedSections[index] || showingResult}
-                data-reward-card={section.id}
+                aria-hidden="true"
               />
-            ))}
+            )}
             <svg
               ref={scratchSurfaceRef}
-              viewBox={`0 0 ${SCRATCH_WIDTH} ${SCRATCH_HEIGHT}`}
+              viewBox={"0 0 " + SCRATCH_WIDTH + " " + SCRATCH_HEIGHT}
               width={SCRATCH_WIDTH}
               height={SCRATCH_HEIGHT}
-              className={`absolute left-[121px] top-[465px] z-20 h-[1220px] w-[838px] touch-none select-none [-webkit-touch-callout:none] ${showingResult || scene === "end" ? "invisible" : ""} ${inputLocked || !scratchReady ? "pointer-events-none" : "cursor-crosshair"}`}
-              aria-label={selectedReward ? selectedReward.label : "Scratch one card to reveal your deal"}
+              className={"absolute left-1/2 top-[491px] z-20 h-[1026px] w-[953px] -translate-x-1/2 touch-none select-none [-webkit-touch-callout:none] " + (inputLocked || !scratchReady ? "pointer-events-none" : "cursor-default")}
+              aria-label="Scratch to reveal 64% OFF"
               onPointerDown={(event) => {
                 if (event.pointerType !== "touch") handlePointerDown(event);
               }}
@@ -563,70 +647,105 @@ const App = () => {
               onContextMenu={(event) => event.preventDefault()}
             >
               <defs>
-                {SECTIONS.map((section, index) => (
-                  <clipPath key={section.id} id={`ev-inset-${index}`}>
-                    <rect x={section.x + 12} y={section.y + 12} width={CELL_WIDTH - 24} height={CELL_HEIGHT - 24} rx="36" />
-                  </clipPath>
-                ))}
-                {SECTIONS.map((section, index) => (
-                  <mask key={section.id} id={`ev-scratch-${index}`} maskUnits="userSpaceOnUse"
-                    x={section.x} y={section.y} width={CELL_WIDTH} height={CELL_HEIGHT}
-                    className="[mask-type:luminance]">
-                    <rect x={section.x} y={section.y} width={CELL_WIDTH} height={CELL_HEIGHT} fill="white" />
-                    <g clipPath={`url(#ev-inset-${index})`}>
-                      <path ref={(node) => { settledScratchRef.current[index] = node; }} fill="none"
-                        stroke="black" strokeWidth={BRUSH_WIDTH} strokeLinecap="round" strokeLinejoin="round" />
-                      <path ref={(node) => { liveScratchRef.current[index] = node; }}
-                        style={{ "--scratch-brush-width": BRUSH_WIDTH }} className="beam-scratch-stroke"
-                        fill="none" stroke="black" strokeWidth={BRUSH_WIDTH} strokeLinecap="round" strokeLinejoin="round" />
-                    </g>
-                    <rect x={section.x} y={section.y} width={CELL_WIDTH} height={CELL_HEIGHT} fill="black"
-                      className={`ev-section-clear ${completedSections[index] ? "is-complete" : ""}`} />
-                  </mask>
-                ))}
+                <clipPath id="memo-inset">
+                  <rect x="40" y="180" width="870" height="645" />
+                </clipPath>
+                <mask id="memo-scratch" maskUnits="userSpaceOnUse"
+                  x="0" y="0" width={CELL_WIDTH} height={CELL_HEIGHT}
+                  className="[mask-type:luminance]">
+                  <rect width={CELL_WIDTH} height={CELL_HEIGHT} fill="white" />
+                  <g clipPath="url(#memo-inset)">
+                    <path ref={(node) => { settledScratchRef.current[0] = node; }} fill="none"
+                      stroke="black" strokeWidth={BRUSH_WIDTH} strokeLinecap="round" strokeLinejoin="round" />
+                    <path ref={(node) => { liveScratchRef.current[0] = node; }}
+                      style={{ "--scratch-brush-width": BRUSH_WIDTH }} className="beam-scratch-stroke"
+                      fill="none" stroke="black" strokeWidth={BRUSH_WIDTH} strokeLinecap="round" strokeLinejoin="round" />
+                  </g>
+                </mask>
               </defs>
-              {SECTIONS.map((section, index) => (
-                <image key={section.id} href={scratch} x={section.x} y={section.y} width={CELL_WIDTH} height={CELL_HEIGHT}
-                  className={`pointer-events-none ${scratchReady ? "" : "ev-card-enter"}`} mask={`url(#ev-scratch-${index})`}
-                  data-section={index} data-complete={!!completedSections[index]} />
-              ))}
+              <image href={scratch} width={CELL_WIDTH} height={CELL_HEIGHT}
+                className={"pointer-events-none memo-paper-enter memo-coating " + (completedSections[0] ? "is-complete" : "")}
+                clipPath="url(#memo-inset)" mask="url(#memo-scratch)" data-section="0" data-complete={!!completedSections[0]} />
               <rect width={SCRATCH_WIDTH} height={SCRATCH_HEIGHT} fill="transparent" />
             </svg>
-            {scene === "initial" && (
-              <img
-                src={hand}
-                alt="Hand scratch guide"
-                className="pointer-events-none absolute left-[738px] top-[1500px] z-30 w-[150px] select-none ev-hand-guide"
-                draggable="false"
-              />
-            )}
-            {showingResult && (
-              <>
-                <img
-                  src={congratulations}
-                  alt="Congratulations!"
-                  className="pointer-events-none absolute left-1/2 top-[223px] z-30 w-[890px] -translate-x-1/2 select-none ev-congratulations-enter"
-                  draggable="false"
-                />
-                <img
-                  src={youveGot}
-                  alt="You've got..."
-                  className="pointer-events-none absolute left-1/2 top-[398px] z-30 w-[536px] -translate-x-1/2 select-none ev-youve-got-enter"
-                  draggable="false"
-                />
-                <img
-                  src={selectedReward.reveal}
-                  alt={selectedReward.label}
-                  className="pointer-events-none absolute left-1/2 top-[562px] z-30 w-[730px] -translate-x-1/2 select-none ev-selected-reward"
-                  draggable="false"
-                  data-result-reward={selectedReward.id}
-                />
-              </>
-            )}
+            <img
+              src={logo}
+              alt="Memowrite"
+              className="pointer-events-none absolute left-1/2 top-[120px] z-30 w-[462px] -translate-x-1/2 select-none memo-logo-enter"
+              draggable="false"
+            />
+            <img
+              src={sun}
+              alt="Illustrated sun"
+              className="pointer-events-none absolute left-[59px] top-[53px] z-30 w-[174px] select-none memo-sun"
+              draggable="false"
+            />
+            <img
+              src={rainbow}
+              alt="Rainbow and stars"
+              className="pointer-events-none absolute left-[767px] top-[22px] z-30 w-[285px] select-none memo-rainbow"
+              draggable="false"
+            />
+            <img
+              src={heart}
+              alt="Red heart"
+              className="pointer-events-none absolute left-[240px] top-[25px] z-30 w-[60px] select-none memo-heart-top"
+              draggable="false"
+            />
+            <img
+              src={cloudsLeft}
+              alt="Left clouds"
+              className="pointer-events-none absolute left-[60px] top-[280px] z-30 w-[132px] select-none memo-clouds-left"
+              draggable="false"
+            />
+            <img
+              src={cloudsRight}
+              alt="Right clouds"
+              className="pointer-events-none absolute left-[857px] top-[290px] z-30 w-[155px] select-none memo-clouds-right"
+              draggable="false"
+            />
+            <img
+              src={headline}
+              alt="Erase to reveal your"
+              className="pointer-events-none absolute left-1/2 top-[284px] z-30 w-[632px] -translate-x-1/2 select-none memo-instruction-enter"
+              draggable="false"
+            />
+            <img
+              src={surprise}
+              alt="SURPRISE!"
+              className="pointer-events-none absolute left-1/2 top-[380px] z-30 w-[933px] -translate-x-1/2 select-none memo-surprise-enter"
+              draggable="false"
+            />
+            <img
+              src={hand}
+              alt="Drag the eraser across the coating"
+              className={"pointer-events-none absolute left-[716px] top-[639px] z-40 w-[220px] select-none memo-hand " + (guiding && !inputLocked ? "is-guiding" : "")}
+              draggable="false"
+              ref={handRef}
+              aria-hidden="true"
+            />
+            <img
+              src={heartsLeft}
+              alt="Left red hearts"
+              className="pointer-events-none absolute left-[64px] top-[1565px] z-40 w-[128px] select-none memo-hearts-left"
+              draggable="false"
+            />
+            <img
+              src={heartsRight}
+              alt="Right red hearts"
+              className="pointer-events-none absolute left-[889px] top-[1565px] z-40 w-[128px] select-none memo-hearts-right"
+              draggable="false"
+            />
             <Cta />
+            <img
+              src={disclaimer}
+              alt="OFFER EXPIRES TONIGHT AT MIDNIGHT"
+              className="pointer-events-none absolute left-1/2 top-[1784px] z-30 w-[603px] -translate-x-1/2 select-none memo-disclaimer-enter"
+              draggable="false"
+            />
           </div>
         </div>
-        {END_SCENE_ENABLED && scene === "end" && <EndScene onReady={handleEndSceneReady} />}
+        {scene === "end" && <EndScene onReady={handleEndSceneReady} />}
       </div>
     </main>
   );

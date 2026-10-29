@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import endSceneHtml from "../assets/endscene/endscene.html?endcard";
-import { openClickthrough } from "./cta";
+import { openDestination } from "./cta";
 import useSound, { playSound, stopSound } from "../hooks/useSound";
 import endSceneSound from "../assets/sounds/endscene1.mp3";
 
@@ -10,9 +10,6 @@ const bridgeScript = `
   try {
     window.mraid = parent.mraid || window.mraid;
     window.clickTag = parent.clickTag || window.clickTag;
-    window.clickTag1 = parent.clickTag1 || window.clickTag1;
-    window.clickthrough = parent.clickthrough || window.clickthrough;
-    window.clickThrough = parent.clickThrough || window.clickThrough;
   } catch (error) {}
 </script>`;
 const bridgedHtml = /* @__PURE__ */ endSceneHtml.replace(/<\/head\s*>/i, `${bridgeScript}</head>`);
@@ -121,7 +118,7 @@ const EndScene = ({ active, onReady }) => {
         sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         allow="autoplay"
         tabIndex={-1}
-        className="absolute inset-0 h-full w-full border-0"
+        className="pointer-events-none absolute inset-0 h-full w-full border-0"
         onLoad={handleLoad}
       />
       <button
@@ -131,7 +128,7 @@ const EndScene = ({ active, onReady }) => {
         className="absolute inset-0 z-30 h-full w-full cursor-pointer border-0 bg-transparent focus-visible:outline-4 focus-visible:outline-offset-[-4px] focus-visible:outline-[#4D523C]"
         onClick={(event) => {
           event.stopPropagation();
-          openClickthrough();
+          openDestination();
         }}
       />
     </section>

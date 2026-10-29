@@ -1,0 +1,143 @@
+﻿@import "tailwindcss";
+
+@font-face {
+  font-family: "Roboto Condensed";
+  src: url("./assets/fonts/RobotoCondensed-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+}
+@font-face {
+  font-family: "Roboto";
+  src: url("./assets/fonts/Roboto-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+}
+
+@keyframes scale-pulse {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.2; }
+}
+.animate-scale-pulse { animation: scale-pulse 1.6s ease-in-out infinite; }
+@keyframes logo-arrive {
+  from { opacity: 0; transform: translateY(-24px) rotate(-5deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes instruction-arrive {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes target-arrive {
+  from { opacity: 0; transform: scale(.7) rotate(-9deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes tile-arrive {
+  from { opacity: 0; transform: translateY(32px) scale(.92); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes cta-arrive {
+  from { opacity: 0; transform: translateY(32px); }
+  to { opacity: 1; transform: none; }
+}
+.logo-entrance { animation: logo-arrive 550ms cubic-bezier(.16,1,.3,1) both; }
+.instruction-entrance { animation: instruction-arrive 400ms 120ms ease-out both; }
+.target-entrance { animation: target-arrive 350ms calc(200ms + var(--target-index) * 65ms) ease-out both; }
+.tile-entrance { animation: tile-arrive 400ms calc(300ms + var(--tile-row) * 80ms + var(--tile-column) * 25ms) ease-out both; }
+.cta-entrance.animate-scale-pulse {
+  animation: cta-arrive 450ms 500ms ease-out both, scale-pulse 1.6s 950ms ease-in-out infinite;
+}
+.scene-control-pending { visibility: hidden; }
+.scene-asset-pending.scene-asset-pending { animation-play-state: paused; }
+
+/* Darkening the supplied ivory artwork preserves its exact olive symbols. */
+.matching-tile { filter: brightness(.57) saturate(.8); transition: filter 250ms ease-out; }
+.matching-tile.is-completed { filter: none; }
+.matching-tile.is-selected { filter: brightness(.76) saturate(.95) drop-shadow(0 0 5px #fff5bc); }
+@keyframes tile-selected {
+  from { scale: 1; }
+  to { scale: 1.025; }
+}
+.tile-selected { animation: tile-selected 120ms ease-out both; }
+@keyframes tile-correct {
+  0%, 100% { transform: none; }
+  35% { transform: scale(1.065) rotate(-2deg); }
+  65% { transform: scale(1.04) rotate(2deg); }
+  85% { transform: scale(1.015) rotate(-1deg); }
+}
+.tile-correct { animation: tile-correct 320ms ease-in-out both; }
+@keyframes tile-wrong {
+  0%, 100% { transform: none; }
+  20%, 60% { transform: translateX(-9px); }
+  40%, 80% { transform: translateX(9px); }
+}
+.tile-wrong { animation: tile-wrong 300ms ease-in-out both; }
+@keyframes target-wiggle {
+  0%, 100% { transform: none; }
+  25% { transform: scale(1.16) rotate(-9deg); }
+  50% { transform: scale(1.13) rotate(8deg); }
+  75% { transform: scale(1.05) rotate(-4deg); }
+}
+.target-wiggle { animation: target-wiggle 360ms ease-in-out both; }
+.target-face { opacity: 0; transition: opacity 220ms ease-out; }
+.target-face.is-active { opacity: 1; }
+@keyframes board-celebrate {
+  0%, 100% { transform: none; }
+  45% { transform: translateY(-5px) scale(1.025); }
+}
+.tile-celebrate { animation: board-celebrate 400ms calc(var(--tile-row) * 65ms) ease-in-out both; }
+.targets-celebrate { animation: target-wiggle 400ms calc(var(--target-index) * 45ms) ease-in-out both; }
+
+/* Each guide is independently positioned; only the valid pair is mounted. */
+@keyframes guide-pair {
+  0%, 3%, 43%, 100% { opacity: 0; transform: translate(22px, 24px) scale(1); }
+  10%, 17% { opacity: 1; transform: none; }
+  23% { opacity: 1; transform: translate(-6px, -8px) scale(.91); }
+  30%, 34% { opacity: 1; transform: none; }
+  40% { opacity: 0; transform: none; }
+}
+.guide-hand { transform-origin: 12% 8%; animation: guide-pair 2.8s ease-in-out infinite both; }
+.guide-hand-second { animation-delay: 1.4s; }
+.guide-hand-single { animation-duration: 1.8s; }
+
+@keyframes gameplay-leave {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.gameplay-leave { animation: gameplay-leave 280ms ease-out both; }
+.gameplay-hidden { visibility: hidden; }
+@keyframes header-arrive {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes products-arrive {
+  from { opacity: 0; transform: translateY(40px) rotate(-3deg); }
+  75% { opacity: 1; transform: translateY(-3px) rotate(.4deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes discount-arrive {
+  from { opacity: 0; transform: scale(.88); }
+  75% { opacity: 1; transform: scale(1.015); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes date-arrive {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.reward-header-entrance { animation: header-arrive 350ms ease-out both; }
+@keyframes products-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-18px); }
+}
+.products-entrance {
+  animation: products-arrive 600ms 80ms ease-out both, products-float 3.6s 680ms ease-in-out infinite;
+}
+.reward-message-entrance { animation: instruction-arrive 400ms 280ms ease-out both; }
+.discount-entrance { animation: discount-arrive 450ms 400ms ease-out both; }
+.reward-date-entrance { animation: date-arrive 350ms 550ms ease-out both; }
+
+/* Retained for the independent end-scene component. */
+.end-scene-fade { opacity: 0; transition: opacity 500ms ease-out; }
+.end-scene-fade.is-visible { opacity: 1; }
+.target-face:not(.is-active) { visibility: hidden; }
+

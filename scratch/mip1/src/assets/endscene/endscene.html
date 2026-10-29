@@ -213,32 +213,15 @@
       const source = document.getElementById("sip-video-source");
       const container = document.getElementById("video-container");
 
-      // Handles clickthrough only after the MRAID bridge reaches an
+      // MRAID destination handling.
       // interactive state.
       function handleClickAction() {
-        const mraid = window.mraid || {};
-        const clickTarget =
-          window.clickTag ||
-          window.clickTag1 ||
-          window.clickthrough ||
-          window.clickThrough ||
-          "";
-
-        if (
-          mraid.open &&
-          typeof mraid.open === "function" &&
-          window.isMraidUsable(mraid)
-        ) {
-          try {
-            if (clickTarget) {
-              mraid.open(clickTarget);
-            } else {
-              mraid.open();
-            }
-            return;
-          } catch (_error) {
-            console.error("mraid.open failed", _error);
-          }
+        console.log("CTA clicked");
+        var mraid = window.mraid || {};
+        var injectedUrl = window.clickTag;
+        var destinationUrl = typeof injectedUrl === "string" ? injectedUrl.trim() : "";
+        if (typeof mraid.open === "function" && typeof window.isMraidUsable === "function" && window.isMraidUsable(mraid)) {
+          try { mraid.open(destinationUrl); } catch (error) { console.error("mraid.open failed", error); }
         }
       }
 

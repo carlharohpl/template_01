@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { openClickthrough } from "./cta";
+import { openDestination } from "./cta";
 import defaultHtml from "../Assets/endscene/endscenedefault.html?endcard";
 import dhHtml from "../Assets/endscene/endscene_dh.html?endcard";
 
@@ -8,9 +8,6 @@ const bridgeScript = `
   try {
     window.mraid = parent.mraid || window.mraid;
     window.clickTag = parent.clickTag || window.clickTag;
-    window.clickTag1 = parent.clickTag1 || window.clickTag1;
-    window.clickthrough = parent.clickthrough || window.clickthrough;
-    window.clickThrough = parent.clickThrough || window.clickThrough;
   } catch (error) {}
 </script>`;
 const documents = {
@@ -66,7 +63,7 @@ export default function EndScene({ variant = "default", onReady }) {
 
   const handleClick = useCallback(event => {
     event.stopPropagation();
-    openClickthrough();
+    openDestination();
   }, []);
 
   return (

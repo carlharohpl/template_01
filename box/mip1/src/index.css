@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+html, body { background: #1c2b5c; }
+
+/* Entrances remain mounted and paused until decoded assets have had two frames. */
+.logo-enter { animation: logo-enter 500ms ease-out both; }
+.banner-enter { animation: banner-enter 400ms 120ms ease-out both; }
+.subtitle-enter { animation: subtitle-enter 350ms 220ms ease-out both; }
+.gift-enter { animation: gift-enter 500ms 300ms cubic-bezier(.2,.7,.3,1) both; }
+.gift-two { animation-name: gift-enter-right; animation-delay: 390ms; }
+.gift-three { animation-name: gift-enter-lower-left; animation-delay: 480ms; }
+.gift-four { animation-name: gift-enter-lower-right; animation-delay: 570ms; }
+.character-enter { animation: character-enter 450ms 600ms ease-out both; }
+.character-enter.flyer-blonde { animation-name: blonde-enter; }
+.character-enter.flyer-red { animation-name: red-enter; }
+.character-enter.flyer-owl { animation-name: owl-enter; }
+.animate-scale-pulse.cta-enter { animation: cta-enter 400ms 700ms ease-out both, scale-pulse 1.6s 1100ms ease-in-out infinite; }
+[data-scene="2"] .character-enter { animation-delay: 100ms; }
+[data-scene="3"] .character-enter { animation-delay: 200ms; }
+.unpack-enter { animation: unpack-enter 600ms cubic-bezier(.2,.7,.3,1) both; }
+.reward-enter { animation: reward-enter 850ms cubic-bezier(.2,.7,.3,1) both; }
+.reward-banner { animation: reward-subtitle-enter 850ms cubic-bezier(.2,.7,.3,1) both; }
+.foreground-paused { animation-play-state: paused; }
+[data-started="false"] .logo-enter,
+[data-started="false"] .cta-enter { animation-play-state: paused; }
+
+@keyframes logo-enter { from { opacity: 0; transform: translateY(-25px); } to { opacity: 1; transform: none; } }
+@keyframes banner-enter { from { opacity: 0; transform: scaleX(.94); } to { opacity: 1; transform: none; } }
+@keyframes subtitle-enter { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes gift-enter { from { opacity: 0; transform: translate(-38px, 42px) rotate(-4deg) scale(.88); } to { opacity: 1; transform: none; } }
+@keyframes gift-enter-right { from { opacity: 0; transform: translate(38px, 42px) rotate(4deg) scale(.88); } to { opacity: 1; transform: none; } }
+@keyframes gift-enter-lower-left { from { opacity: 0; transform: translate(-20px, 64px) rotate(3deg) scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes gift-enter-lower-right { from { opacity: 0; transform: translate(20px, 64px) rotate(-3deg) scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes character-enter { from { opacity: 0; transform: translate(-90px, 30px) rotate(-9deg); } to { opacity: 1; transform: none; } }
+@keyframes blonde-enter { from { opacity: 0; transform: translate(85px, -24px) rotate(8deg); } to { opacity: 1; transform: none; } }
+@keyframes red-enter { from { opacity: 0; transform: translate(65px, 55px) rotate(-7deg); } to { opacity: 1; transform: none; } }
+@keyframes owl-enter { from { opacity: 0; transform: translate(-30px, 70px) scale(.84); } to { opacity: 1; transform: none; } }
+@keyframes cta-enter { from { opacity: 0; transform: translateY(25px); } to { opacity: 1; transform: none; } }
+@keyframes unpack-enter { from { opacity: 0; transform: translateY(45px) scale(.82) rotate(-3deg); } to { opacity: 1; transform: none; } }
+@keyframes reward-enter { from { opacity: 0; transform: translateY(90px) scale(.78) rotate(-5deg); } 75% { opacity: 1; transform: translateY(-8px) scale(1.02); } to { opacity: 1; transform: none; } }
+@keyframes reward-subtitle-enter { from { opacity: 0; transform: translateY(16px); } 75%,100% { opacity: 1; transform: none; } }
+
+.guide-hand { opacity: 0; animation: guide-hand 2s ease-in-out infinite; }
+.guide-gift { animation: guide-gift 2s ease-in-out infinite; }
+.guide-fast { animation-duration: 1.35s; }
+@keyframes guide-hand {
+  0%, 12% { opacity: 0; transform: translate(22px, 32px) scale(1); }
+  24% { opacity: 1; transform: translate(12px, 18px) scale(1); }
+  38% { opacity: 1; transform: none; }
+  44% { opacity: 1; transform: translate(-7px, -10px) scale(.92); }
+  53% { opacity: 1; transform: translate(2px, 5px) scale(1); }
+  72%, 100% { opacity: 0; transform: translate(14px, 24px) scale(1); }
+}
+@keyframes guide-gift {
+  0%, 38%, 64%, 100% { transform: none; }
+  44% { transform: translateX(-8px) rotate(-3deg); }
+  50% { transform: translateX(8px) rotate(3deg); }
+  57% { transform: translateX(-3px) rotate(-1.2deg); }
+}
+.tap-a { animation: tap-a 300ms ease-out both; }
+.tap-b { animation: tap-b 300ms ease-out both; }
+.gift-selected { animation: selected-wiggle 340ms ease-out both; }
+.final-wiggle { animation: final-wiggle 440ms ease-in-out both; }
+@keyframes tap-a { 0%,100% { transform: none; } 25% { transform: translateX(-16px) rotate(-4deg) scale(1.035); } 55% { transform: translateX(14px) rotate(4deg); } 80% { transform: rotate(-1.5deg); } }
+@keyframes tap-b { 0%,100% { transform: none; } 25% { transform: translateX(16px) rotate(4deg) scale(1.035); } 55% { transform: translateX(-14px) rotate(-4deg); } 80% { transform: rotate(1.5deg); } }
+@keyframes selected-wiggle { 0%,100% { transform: none; } 25% { transform: rotate(-5deg) scale(1.06); } 60% { transform: rotate(5deg) scale(1.04); } }
+@keyframes final-wiggle { 0%,100% { transform: none; } 20% { transform: translateX(-18px) rotate(-6deg) scale(1.05); } 45% { transform: translateX(18px) rotate(6deg) scale(1.05); } 70% { transform: rotate(-3.5deg); } }
+.gift-exit { animation: gift-exit 380ms ease-in both; }
+.selected-exit { animation: selected-exit 380ms ease-in-out both; }
+.support-exit { animation: support-exit 380ms ease-in both; }
+.closed-opening { animation: closed-opening 650ms ease-in-out both; }
+@keyframes gift-exit { to { opacity: 0; transform: translateY(35px) scale(.88); } }
+@keyframes selected-exit { to { opacity: 0; transform: scale(1.35); } }
+@keyframes support-exit { to { opacity: 0; transform: translateY(-16px); } }
+@keyframes closed-opening { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(30px) scale(.85); } }
+.character-float { animation: character-float 4.1s ease-in-out infinite; }
+.character-float.float-blonde { animation-name: blonde-float; animation-duration: 4.7s; animation-delay: -1.2s; }
+.character-float.float-red { animation-name: red-float; animation-duration: 3.8s; animation-delay: -2.3s; }
+.character-float.float-owl { animation-name: owl-float; animation-duration: 5.2s; animation-delay: -.7s; }
+@keyframes character-float { 0%,100% { transform: translate(-3px, 0) rotate(-1deg); } 50% { transform: translate(7px, -14px) rotate(1.5deg); } }
+@keyframes blonde-float { 0%,100% { transform: translate(3px, -3px) rotate(1deg); } 50% { transform: translate(-9px, 12px) rotate(-1.5deg); } }
+@keyframes red-float { 0%,100% { transform: translate(0, 4px) rotate(1deg); } 50% { transform: translate(-12px, -12px) rotate(-2deg); } }
+@keyframes owl-float { 0%,100% { transform: translate(-3px, 3px) rotate(-1.5deg); } 50% { transform: translate(6px, -18px) rotate(1.5deg); } }
+.instruction-banner { background: linear-gradient(#ff812e 0%, #ff6800 4%, #ef4e00 95%, #d94300 97%, #ca3b00 100%); }
+.gift-hit { touch-action: none; }
+.gift-hit:focus-visible, .cta-hit:focus-visible { outline: 4px solid white; outline-offset: 5px; }
+.cta-hit:disabled { pointer-events: none; }
+
+@keyframes scale-pulse {
+  0%,
+  100% {
+    scale: 1;
+  }
+  50% {
+    scale: 1.2;
+  }
+}
+
+.animate-scale-pulse {
+  animation: scale-pulse 1.6s ease-in-out infinite;
+}
+
+.scene-inactive .animate-scale-pulse {
+  animation-play-state: paused;
+}
+
+.end-scene-fade {
+  opacity: 0;
+  transition: opacity 500ms ease-out;
+}
+
+.end-scene-fade.is-visible {
+  opacity: 1;
+}
+
+.end-scene-fade:not(.is-visible) .animate-scale-pulse,
+[data-phase="end-complete"] .character-float {
+  animation-play-state: paused;
+}

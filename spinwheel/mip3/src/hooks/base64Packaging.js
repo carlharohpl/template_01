@@ -125,19 +125,22 @@ export function decodeBase64(payload, label) {
 
 function checkNavigation(text, label) {
   if (text.includes('window.' + 'open')) fail(`${label}: forbidden browser navigation`);
+  if (/clickTag1|click[-_]?through/i.test(text)) {
+    fail(`${label}: reserved tracking name; use only the injected window.clickTag and neutral helper names such as openDestination`);
+  }
 }
 
 function property(node) {
   return node?.computed ? node.property?.value : node?.property?.name;
 }
 
-function inspectJs(code, label, inspectString, inlineHandler = false) {
+function inspectJs(code, label, inspectString, inlineHandler = false, sourceType = 'unambiguous', main = false) {
   checkNavigation(code, label);
   let tree;
-  try { tree = parseJs(code, { sourceType: 'unambiguous', plugins: ['jsx'], allowReturnOutsideFunction: inlineHandler }); }
+  try { tree = parseJs(code, { sourceType, plugins: ['jsx'], allowReturnOutsideFunction: inlineHandler }); }
   catch (error) { fail(`${label}: cannot validate JavaScript: ${error.message}`); }
   // Navigation destinations are not media requests. Preserve supplied URL
-  // literals in MRAID arguments and the existing click-target chain.
+  // literals in MRAID arguments and destination variables.
   const destinations = new WeakSet();
   const markDestination = node => {
     if (node?.type === 'StringLiteral' || node?.type === 'TemplateElement') destinations.add(node);
@@ -146,8 +149,12 @@ function inspectJs(code, label, inspectString, inlineHandler = false) {
     if (node?.type === 'ConditionalExpression') { markDestination(node.consequent); markDestination(node.alternate); }
   };
   walk(tree, node => {
-    if (node.type === 'AssignmentExpression' && /^(?:(?:window|self|globalThis)\.)?(?:clickTag|clickTag1|clickthrough|clickThrough|clickTarget)$/.test(memberPath(node.left))) markDestination(node.right);
-    if (node.type === 'VariableDeclarator' && /^(?:clickTag|clickTag1|clickthrough|clickThrough|clickTarget)$/.test(node.id?.name)) markDestination(node.init);
+    if (main && (
+      (['AssignmentExpression', 'UpdateExpression'].includes(node.type) && /^(?:(?:window|self|globalThis)\.)?clickTag$/.test(memberPath(node.left ?? node.argument))) ||
+      (node.type === 'VariableDeclarator' && node.id?.name === 'clickTag')
+    )) fail(`${label}: the main creative must not declare or overwrite the platform-injected window.clickTag`);
+    if (node.type === 'AssignmentExpression' && /^(?:(?:window|self|globalThis)\.)?(?:clickTag|clickTarget|destinationUrl)$/.test(memberPath(node.left))) markDestination(node.right);
+    if (node.type === 'VariableDeclarator' && /^(?:clickTag|clickTarget|destinationUrl)$/.test(node.id?.name)) markDestination(node.init);
     if (node.type === 'StringLiteral') inspectString(node.value, node, destinations.has(node));
     if (node.type === 'TemplateElement') inspectString(node.value.cooked ?? node.value.raw, node, destinations.has(node));
     if (node.type === 'ImportDeclaration' && /\.html?(?:\?|$)/i.test(node.source.value) && !node.source.value.endsWith('?endcard')) {
@@ -166,7 +173,7 @@ function inspectJs(code, label, inspectString, inlineHandler = false) {
       const callee = memberPath(node.callee);
       if (/(?:^|\.)mraid\.open$/.test(callee)) markDestination(node.arguments[0]);
       if (/(?:^|\.)mraid\.open$/.test(callee) && node.arguments.length === 0) {
-        fail(`${label}: MRAID click-through requires a clickTarget argument`);
+        fail(`${label}: MRAID navigation requires an explicit destination argument`);
       }
       if (/(?:^|\.)(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|Worker|SharedWorker|importScripts)$/.test(callee) || /serviceWorker\.register$/.test(callee)) {
         fail(`${label}: runtime external-resource API ${callee} is forbidden`);
@@ -207,6 +214,13 @@ function dataReference(value, label, documents, depth) {
 function inspectValue(value, label, documents, depth, destination = false) {
   checkNavigation(value, label);
   if (htmlDocument.test(value)) fail(`${label}: raw embedded HTML document; use .html?endcard`);
+  if (!destination && value.length >= 16 && value.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(value)) {
+    // Inspect plain encoded HTML constants too, without interpreting binary media.
+    const decoded = Buffer.from(value, 'base64');
+    if (htmlDocument.test(decoded.toString('utf8'))) {
+      dataReference(`data:text/html;base64,${value}`, label, documents, depth);
+    }
+  }
   if (value.startsWith('data:')) dataReference(value, label, documents, depth);
   else if (!destination && (mediaExtension.test(value) || (/^(?:https?:|wss?:|\/\/)/i.test(value) && !namespaces.has(value)))) {
     // React includes non-resource diagnostic links; resource attributes are checked separately.
@@ -248,7 +262,7 @@ export function validateHtml(html, { label = 'creative', main = false, documents
       const code = node.childNodes?.map(child => child.value || '').join('') || '';
       if (!attrs.type || /^(?:module|(?:text|application)\/javascript)$/.test(attrs.type)) {
         if (code.trim()) {
-          inspectJs(code, label, (value, _node, destination) => inspectValue(value, label, documents, depth, destination));
+          inspectJs(code, label, (value, _node, destination) => inspectValue(value, label, documents, depth, destination), false, attrs.type === 'module' ? 'module' : 'script', main);
           if (calendarEdits(code, label).edits.length) fail(`${label}: calendar content bypasses the shared preview clock; use window.__mip.calendarClock.now() (or import the shared singleton in gameplay).`);
         }
       } else if (code.trim()) {
@@ -275,7 +289,7 @@ export function validateHtml(html, { label = 'creative', main = false, documents
     for (const [name, value] of Object.entries(attrs)) {
       if (name === 'srcdoc') fail(`${label}: raw embedded HTML srcdoc; decode a build-time end-card import at runtime`);
       if (name === 'style') validateCss(value, label, documents, depth);
-      if (name.startsWith('on')) inspectJs(value, label, (item, _node, destination) => inspectValue(item, label, documents, depth, destination), true);
+      if (name.startsWith('on')) inspectJs(value, label, (item, _node, destination) => inspectValue(item, label, documents, depth, destination), true, 'script', main);
       if (['src', 'href', 'xlink:href', 'poster', 'data', 'action', 'formaction', 'background'].includes(name)) {
         if (node.tagName === 'script' && name === 'src' && value === 'mraid.js') continue;
         if (value.startsWith('#')) continue;
@@ -296,7 +310,7 @@ export function validateHtml(html, { label = 'creative', main = false, documents
   });
   if (main) {
     if (scripts[0]?.attrs.find(attr => attr.name === 'src')?.value !== 'mraid.js') fail(`${label}: mraid.js must remain the first script`);
-    for (const required of ['window.__mip.openClickthrough = function handleMraidOpen()', 'window.isMraidUsable(mraid)', 'mraid.open(clickTarget)', 'mraid.getState() === "loading"']) {
+    for (const required of ['window.__mip.openDestination = function handleMraidOpen()', 'window.isMraidUsable(mraid)', 'mraid.open(destinationUrl)', 'mraid.getState() === "loading"']) {
       if (!html.includes(required)) fail(`${label}: required raw MRAID implementation missing: ${required}`);
     }
   }

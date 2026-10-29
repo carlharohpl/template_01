@@ -1,0 +1,259 @@
+@import "tailwindcss";
+
+@keyframes scale-pulse {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.2; }
+}
+.animate-scale-pulse { animation: scale-pulse 1.6s ease-in-out infinite; }
+
+/* Reveal at natural proportions: no 3D layer or horizontal squeeze. */
+.memory-card {
+  transform: none;
+  transition: opacity 180ms ease-out, visibility 0s var(--card-visibility-delay, 0ms);
+}
+.card-front, .card-back.is-revealed {
+  opacity: 0;
+  visibility: hidden;
+  --card-visibility-delay: 180ms;
+}
+.card-back, .card-front.is-revealed {
+  opacity: 1;
+  visibility: visible;
+  --card-visibility-delay: 0ms;
+}
+
+/* Keep visible card images on the same sharp opacity layer after a match.
+   Apply this to the cards only, never the scaled canvas. */
+.card-front.is-revealed, .card-back:not(.is-revealed) {
+  will-change: opacity;
+}
+
+/* Each asset owns its entrance directly; canvas centering stays on translate. */
+.scene-asset-pending { opacity: 0; animation-play-state: paused; }
+.scene-control-pending { visibility: hidden; animation-play-state: paused; }
+@keyframes cloud-arrive {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+@keyframes logo-arrive {
+  0% { opacity: 0; transform: perspective(1200px) translateY(-110px) rotateX(-65deg); }
+  72% { opacity: 1; transform: perspective(1200px) translateY(9px) rotateX(5deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes title-arrive {
+  0% { opacity: 0; transform: translate(-240px, 38px) rotate(-7deg); }
+  74% { opacity: 1; transform: translate(10px, -3px) rotate(0.6deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes subtitle-arrive {
+  from { opacity: 0; clip-path: inset(0 50% 0 50%); }
+  to { opacity: 1; clip-path: inset(0); }
+}
+@keyframes tray-arrive {
+  from { opacity: 0; transform: perspective(1600px) translateY(90px) rotateX(18deg) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes card-one-deal {
+  0% { opacity: 0; transform: perspective(1400px) translate(344px, 620px) rotate(-22deg) rotateY(-35deg); }
+  76% { opacity: 1; transform: translate(6px, 5px) rotate(1.5deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes card-two-deal {
+  0% { opacity: 0; transform: perspective(1400px) translate(20px, 620px) rotateX(65deg); }
+  75% { opacity: 1; transform: perspective(1400px) translateY(8px) rotateX(-4deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes card-three-deal {
+  0% { opacity: 0; transform: perspective(1400px) translate(-304px, 620px) rotate(24deg) rotateY(40deg); }
+  78% { opacity: 1; transform: translate(-6px, 3px) rotate(-1deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes card-four-deal {
+  0% { opacity: 0; transform: translate(344px, 176px) rotate(-14deg) scale(0.7); }
+  76% { opacity: 1; transform: translate(5px, -4px) rotate(1deg) scale(1.015); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes card-five-deal {
+  0% { opacity: 0; transform: perspective(1400px) translate(20px, 176px) rotateX(-45deg) scale(0.65); }
+  74% { opacity: 1; transform: translateY(-7px) scale(1.03); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes card-six-deal {
+  0% { opacity: 0; transform: perspective(1400px) translate(-304px, 176px) rotate(12deg) rotateY(-45deg); }
+  76% { opacity: 1; transform: translate(-5px, -5px) rotate(-1deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes cta-arrive {
+  0% { opacity: 0; transform: perspective(1200px) translateY(95px) rotateX(-28deg); }
+  78% { opacity: 1; transform: translateY(-5px); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes cta-hit-reveal {
+  from { visibility: hidden; }
+  to { visibility: visible; }
+}
+.cloud-entrance { animation: cloud-arrive 900ms ease-out backwards; }
+.card-deal {
+  animation-duration: 680ms;
+  animation-timing-function: cubic-bezier(0.18, 0.7, 0.25, 1);
+  animation-fill-mode: backwards;
+}
+.card-deal-one { animation-name: card-one-deal; animation-delay: 220ms; }
+.card-deal-two { animation-name: card-two-deal; animation-delay: 310ms; }
+.card-deal-three { animation-name: card-three-deal; animation-delay: 400ms; }
+.card-deal-four { animation-name: card-four-deal; animation-delay: 490ms; }
+.card-deal-five { animation-name: card-five-deal; animation-delay: 580ms; }
+.card-deal-six { animation-name: card-six-deal; animation-delay: 670ms; }
+/* Entrance owns transform/opacity; idle pulse owns scale with a smooth handoff. */
+.cta-entrance.animate-scale-pulse {
+  animation: cta-arrive 650ms 400ms cubic-bezier(0.16, 1, 0.3, 1) backwards,
+    scale-pulse 1.6s 1050ms ease-in-out infinite;
+}
+.cta-hit-entrance { animation: cta-hit-reveal 1ms 400ms step-end backwards; }
+@keyframes counter-update {
+  from { opacity: 0.5; transform: translateY(6px) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+.logo-entrance { animation: logo-arrive 750ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.title-entrance { animation: title-arrive 740ms 100ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.subtitle-entrance { animation: subtitle-arrive 500ms 300ms ease-out backwards; }
+.tray-entrance { animation: tray-arrive 750ms 180ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.subtitle-state, .match-counter { transition: opacity 180ms ease-out; }
+.subtitle-state.is-hidden { opacity: 0; }
+.counter-update { animation: counter-update 260ms ease-out; }
+
+
+
+
+
+/* Point at both real cards without activating either one. */
+@keyframes hand-guide-pair {
+  0% { opacity: 0; transform: translate(0, 20px) scale(1.04); }
+  8%, 24%, 32% { opacity: 1; transform: translate(0, 0) scale(1); }
+  16% { opacity: 1; transform: translate(0, 0) scale(0.9); }
+  52%, 70%, 84% { opacity: 1; transform: translate(var(--guide-dx), var(--guide-dy)) scale(1); }
+  61% { opacity: 1; transform: translate(var(--guide-dx), var(--guide-dy)) scale(0.9); }
+  96%, 100% { opacity: 0; transform: translate(var(--guide-dx), var(--guide-dy)) scale(1); }
+}
+.hand-guide {
+  transform-origin: 12px 16px;
+  animation: hand-guide-pair 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+
+@keyframes end-scene-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.end-scene-placeholder { animation: end-scene-appear 450ms ease-out both; }
+
+
+/* Feedback uses independent properties; transform remains owned by the flip.
+   These cards use explicit left/top positions, without a centering translate. */
+@keyframes pair-wrong {
+  0%, 100% { translate: 0 0; rotate: 0deg; }
+  18% { translate: -14px 0; rotate: -1.2deg; }
+  38% { translate: 14px 0; rotate: 1deg; }
+  58% { translate: -9px 0; rotate: -0.6deg; }
+  78% { translate: 4px 0; rotate: 0.3deg; }
+}
+.card-pair-wrong { animation: pair-wrong 480ms ease-in-out; }
+
+
+/* Keep the opening all-card flip, without a persistent 3D/backface layer.
+   At rest the visible face has no transform, so the artwork stays sharp. */
+.memory-card.card-preview-flip {
+  transition: transform 200ms var(--preview-flip-delay, 0ms) var(--preview-flip-ease, ease-in),
+    opacity 0s 200ms, visibility 0s 200ms;
+}
+.card-preview-flip.card-front, .card-preview-flip.card-back.is-revealed {
+  transform: scaleX(0);
+  --preview-flip-delay: 0ms;
+  --preview-flip-ease: ease-in;
+}
+.card-preview-flip.card-back, .card-preview-flip.card-front.is-revealed {
+  transform: none;
+  --preview-flip-delay: 200ms;
+  --preview-flip-ease: ease-out;
+}
+
+
+/* Holiday cues stay on their artwork; the hit areas never move. */
+@keyframes holiday-instructions-arrive {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: none; }
+}
+.holiday-instructions-entrance {
+  animation: holiday-instructions-arrive 500ms 250ms ease-out backwards;
+}
+@keyframes holiday-card-attention {
+  0%, 62%, 100% { rotate: 0deg; }
+  70% { rotate: -8deg; }
+  78% { rotate: 8deg; }
+  86% { rotate: -5deg; }
+  94% { rotate: 3deg; }
+}
+.holiday-card-attention {
+  animation: holiday-card-attention 2.4s ease-in-out infinite;
+}
+@keyframes holiday-hand-tap {
+  0%, 100% { transform: none; }
+  35% { transform: translate(-4px, -5px); }
+  50% { transform: translate(-7px, -10px) scale(0.94); }
+  70% { transform: translate(-4px, -5px); }
+}
+.holiday-hand-tap {
+  transform-origin: 18% 15%;
+  animation: holiday-hand-tap 1.6s ease-in-out infinite;
+}
+@keyframes holiday-confetti-burst {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(0.65); }
+  12%, 55% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x), var(--y)) rotate(var(--rotate)) scale(1); }
+}
+.holiday-confetti {
+  animation: holiday-confetti-burst var(--duration, 1.4s) var(--delay, 0s) cubic-bezier(0.2, 0.3, 0.4, 1) both;
+}
+
+
+
+/* Only accepted selections animate; the fixed card hit areas never move.
+   Tap finishes before pair evaluation; success finishes before input unlocks. */
+@keyframes card-tap {
+  0%, 100% { scale: 1; }
+  28% { scale: 0.94; }
+  65% { scale: 1.025; }
+}
+.card-tap { animation: card-tap 320ms cubic-bezier(0.22, 0.7, 0.3, 1); }
+@keyframes pair-correct {
+  0%, 100% { scale: 1; }
+  38% { scale: 1.06; }
+  72% { scale: 0.99; }
+}
+.card-pair-correct { animation: pair-correct 480ms ease-in-out; }
+
+
+/* Intro entrance and idle cues own separate properties on each image. */
+@keyframes holiday-intro-card-arrive {
+  0% { opacity: 0; transform: perspective(1000px) translateY(45px) rotateY(-65deg); }
+  75% { opacity: 1; transform: perspective(1000px) translateY(-3px) rotateY(4deg); }
+  100% { opacity: 1; transform: none; }
+}
+.holiday-intro-card-entrance.holiday-card-attention {
+  animation: holiday-intro-card-arrive 600ms 200ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards,
+    holiday-card-attention 2.4s 800ms ease-in-out infinite;
+}
+@keyframes holiday-intro-hand-arrive {
+  from { opacity: 0; translate: 50px 65px; }
+  to { opacity: 1; translate: 0 0; }
+}
+.holiday-intro-hand-entrance.holiday-hand-tap {
+  animation: holiday-intro-hand-arrive 500ms 550ms cubic-bezier(0.16, 1, 0.3, 1) backwards,
+    holiday-hand-tap 1.6s 1050ms ease-in-out infinite;
+}
+
+
+/* Keep the completed board visible until the supplied HTML has painted. */
+.end-scene-fade { opacity: 0; transition: opacity 500ms ease-out; }
+.end-scene-fade.is-visible { opacity: 1; }
+

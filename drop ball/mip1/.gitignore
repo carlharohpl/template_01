@@ -1,0 +1,51 @@
+# Dependencies (keep package manifests and lockfiles tracked)
+node_modules/
+
+# Generated builds
+/dist/
+/dist-ssr/
+
+# Tool caches
+.vite/
+.vite-temp/
+.cache/
+.eslintcache
+
+# Generated test output (keep reference screenshots tracked)
+/coverage/
+/playwright-report/
+/test-results/
+
+# Local environment settings; example files may be committed
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.template
+*.local
+
+# Local assistant instructions and settings
+/CLAUDE.md
+/CLAUDE.local.md
+/.claude/settings.local.json
+
+# Editor settings and temporary files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

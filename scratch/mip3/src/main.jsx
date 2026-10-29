@@ -1,9 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
-import { calendarClock } from "./hooks/calendarClock";
-
-window.__mip.calendarClock = calendarClock;
 
 // AppLovin MIP: don't initialize layout, interaction, media playback, or
 // orientation handling until MRAID is out of the "loading" state.

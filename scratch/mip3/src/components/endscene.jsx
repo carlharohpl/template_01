@@ -1,175 +1,85 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Cta, openClickthrough } from "./cta";
-import { calendarClock, subscribeCalendarClock } from "../hooks/calendarClock";
-import logo from "../assets/img/logo.webp";
-import price from "../assets/img/subtitle4.webp";
-import offer from "../assets/img/subtitle5.webp";
-import divider from "../assets/img/line.webp";
-import cta from "../assets/img/cta.webp";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { openDestination } from "./cta";
+import background from "../assets/img/crumpled-paper.webp";
+import endCardHtml from "../assets/endscene/endscene.html?endcard";
 
-const CONFETTI_SHAPES = [
-  { width: 7, height: 11, clip: "polygon(12% 0,100% 15%,82% 100%,0 83%)" },
-  { width: 4, height: 26, clip: "polygon(0 0,100% 6%,75% 100%,18% 91%)" },
-  { width: 19, height: 19, clip: "polygon(0 8%,90% 0,100% 94%,8% 100%)" },
-  { width: 23, height: 14, clip: "polygon(0 12%,43% 0,60% 22%,100% 7%,89% 90%,55% 100%,36% 75%,8% 94%)" },
-];
-const CONFETTI = Array.from({ length: 84 }, (_, index) => {
-  const kind = index % 9;
-  const shape = CONFETTI_SHAPES[kind < 3 ? 0 : kind < 5 ? 1 : kind < 8 ? 2 : 3];
-  const duration = 8 + ((index * 13) % 55) / 10;
-  const phase = (index * .754877666) % 1;
-  return {
-    id: index,
-    x: ((index * .618033989 + .017) % 1) * 1080,
-    width: index % 17 === 0 ? 28 : shape.width,
-    height: index % 17 === 0 ? 26 : shape.height,
-    clip: shape.clip,
-    drift: (index * 47) % 180 - 90,
-    spin: (index % 2 ? -1 : 1) * (180 + (index * 67) % 540),
-    duration,
-    delay: -duration * phase,
-    flutter: 2.2 + ((index * 7) % 25) / 10,
-    rest: 60 + phase * 1920,
-    opacity: .72 + (index % 5) * .07,
-    color: ["#ffb500", "#ffa600", "#ffc32a"][index % 3],
-  };
-});
+const endCardDocument = endCardHtml.replace(/<\/head>/i, `<script>
+  try {
+    window.mraid = parent.mraid || window.mraid;
+    window.clickTag = parent.clickTag || window.clickTag;
+  } catch (error) {}
+</script></head>`);
 
 const EndScene = ({ onReady }) => {
   const [visible, setVisible] = useState(false);
-  const [promoDate, setPromoDate] = useState(() => calendarClock.now());
   const revealedRef = useRef(false);
-  const notifiedRef = useRef(false);
   const frameRef = useRef(null);
   const fallbackRef = useRef(null);
-
-  useEffect(() => subscribeCalendarClock(calendarClock, () => setPromoDate(calendarClock.now())), []);
+  const cancelledRef = useRef(false);
 
   const reveal = useCallback(() => {
     if (revealedRef.current) return;
     revealedRef.current = true;
     window.clearTimeout(fallbackRef.current);
-    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
-    frameRef.current = null;
     setVisible(true);
-  }, []);
+    onReady?.();
+  }, [onReady]);
+
+  const scheduleReveal = useCallback(() => {
+    if (cancelledRef.current || revealedRef.current || frameRef.current !== null) return;
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null;
+        if (!cancelledRef.current) reveal();
+      });
+    });
+  }, [reveal]);
 
   useEffect(() => {
-    let cancelled = false;
-    const scheduleReveal = () => {
-      if (cancelled || revealedRef.current || frameRef.current !== null) return;
-      frameRef.current = requestAnimationFrame(() => {
-        frameRef.current = requestAnimationFrame(() => {
-          frameRef.current = null;
-          if (!cancelled) reveal();
-        });
-      });
-    };
+    cancelledRef.current = false;
     fallbackRef.current = window.setTimeout(scheduleReveal, 1200);
-    Promise.allSettled([logo, price, offer, divider, cta].map((src) => {
-      const image = new Image();
-      image.src = src;
-      return image.decode?.();
-    })).then(scheduleReveal);
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
       window.clearTimeout(fallbackRef.current);
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
     };
-  }, [reveal]);
-
-  useEffect(() => {
-    if (!visible || notifiedRef.current) return;
-    notifiedRef.current = true;
-    onReady?.();
-  }, [visible, onReady]);
+  }, [scheduleReveal]);
 
   return (
-    <>
-      <div
-        className={`end-scene-fade ev-end-wash pointer-events-none absolute inset-0 z-50 ${visible ? "is-visible" : ""}`}
-        aria-hidden="true"
-      />
     <section
-      className={`end-scene-fade absolute inset-0 z-[60] overflow-hidden ${visible ? "is-visible" : "pointer-events-none"}`}
-      aria-label="ExpressVPN limited time offer"
+      className={`end-scene-fade absolute inset-0 z-[80] overflow-hidden bg-[#dedede] ${visible ? "is-visible" : "pointer-events-none"}`}
+      aria-label="Memowrite offer"
       aria-hidden={!visible}
     >
+      <img
+        src={background}
+        alt="Crumpled paper background"
+        className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover select-none"
+        draggable="false"
+      />
+      <iframe
+        title="Memowrite offer"
+        className="pointer-events-none absolute inset-0 z-10 h-full w-full border-0"
+        srcDoc={endCardDocument}
+        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+        allow="autoplay"
+        tabIndex={-1}
+        onLoad={scheduleReveal}
+      />
       <button
         type="button"
         aria-label="Open offer"
         disabled={!visible}
-        className="absolute inset-0 z-30 h-full w-full cursor-pointer touch-manipulation bg-transparent focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-white"
+        className="absolute inset-0 z-30 h-full w-full cursor-pointer touch-manipulation bg-transparent focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-black"
+        onPointerDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
-          openClickthrough();
+          openDestination();
         }}
       />
-      {visible && CONFETTI.map((piece) => (
-        <div
-          key={piece.id}
-          aria-hidden="true"
-          className="pointer-events-none absolute top-[-60px] z-[15] [clip-path:var(--confetti-shape)] wolt-end-confetti"
-          style={{
-            left: `${piece.x / 1080 * 100}%`,
-            width: `clamp(1.75px, calc(var(--ui-scale,1) * ${piece.width * 1.75}px), 17.5px)`,
-            height: `clamp(3.5px, calc(var(--ui-scale,1) * ${piece.height * 1.75}px), 21px)`,
-            background: `linear-gradient(110deg, #ae6900 0%, ${piece.color} 22%, #ffd15b 48%, ${piece.color} 72%, #c37b00 100%)`,
-            opacity: piece.opacity,
-            "--confetti-shape": piece.clip,
-            "--confetti-drift": `calc(var(--ui-scale,1) * ${piece.drift}px)`,
-            "--confetti-spin": `${piece.spin}deg`,
-            "--confetti-duration": `${piece.duration}s`,
-            "--confetti-delay": `${piece.delay}s`,
-            "--confetti-flutter": `${piece.flutter}s`,
-            "--confetti-rest": `${piece.rest / 1920 * 100}dvh`,
-          }}
-        />
-      ))}
-      {/* Both orientations retain the same composition within the shared design canvas. */}
-      <div className="pointer-events-none absolute left-[var(--ui-left,0px)] top-[var(--ui-top,0px)] z-20 h-[var(--ui-height,1920px)] w-[var(--ui-width,1080px)]">
-        <div className="pointer-events-none absolute left-0 top-0 h-[1920px] w-[1080px] origin-top-left scale-[var(--ui-scale,1)] overflow-visible">
-          <img
-            src={logo}
-            alt="ExpressVPN"
-            className="pointer-events-none absolute left-1/2 top-[94px] z-30 w-[434px] -translate-x-1/2 select-none"
-            draggable="false"
-          />
-          {visible && (
-            <>
-              {/* Extend the panel to the viewport bottom, including tall-screen letterboxing. */}
-              <div className="pointer-events-none absolute left-1/2 top-[1090px] z-40 h-[max(830px,calc((100dvh_-_var(--ui-top,0px))_/_var(--ui-scale,1)_-_1090px))] w-[1080px] -translate-x-1/2 rounded-t-[60px] bg-[#1c3949] wolt-end-slide-up" />
-              <img
-                src={price}
-                alt="From €2.49/month"
-                className="pointer-events-none absolute left-1/2 top-[1200px] z-50 w-[820px] -translate-x-1/2 select-none wolt-end-slide-up"
-                draggable="false"
-              />
-              <img
-                src={divider}
-                alt="Divider"
-                className="pointer-events-none absolute left-1/2 top-[1331px] z-50 w-[820px] -translate-x-1/2 select-none wolt-end-slide-up"
-                draggable="false"
-              />
-              <img
-                src={offer}
-                alt="LIMITED TIME OFFER"
-                className="pointer-events-none absolute left-1/2 top-[1408px] z-50 w-[825px] -translate-x-1/2 select-none wolt-end-slide-up"
-                draggable="false"
-              />
-              <p
-                className="pointer-events-none absolute left-1/2 top-[1530px] z-50 w-[750px] -translate-x-1/2 select-none font-[Jost] text-[72px] font-normal leading-[1] tracking-[0px] text-center text-white wolt-end-slide-up"
-              >
-                PROMO ENDS ON<br />{promoDate.toLocaleDateString("en-US", { month: "long", day: "numeric" }).toUpperCase()}
-              </p>
-              <Cta scene="end" />
-            </>
-          )}
-        </div>
-      </div>
     </section>
-    </>
   );
 };
 

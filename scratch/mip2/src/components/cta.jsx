@@ -2,10 +2,10 @@ import cta from "../assets/img/cta.webp";
 import endCta from "../assets/endscene/cta.webp";
 
 // Keep the shared raw-inline MRAID guard and destination handling in index.html.
-// eslint-disable-next-line react-refresh/only-export-components -- shared clickthrough entry point
-export const openClickthrough = () => {
+// eslint-disable-next-line react-refresh/only-export-components -- shared destination entry point
+export const openDestination = () => {
   console.log("CTA clicked");
-  window.__mip.openClickthrough();
+  window.__mip.openDestination();
 };
 
 export const Cta = ({ scene = "gameplay" }) => scene === "end" ? (
@@ -24,7 +24,7 @@ export const Cta = ({ scene = "gameplay" }) => scene === "end" ? (
       className="pointer-events-auto absolute left-1/2 top-[1677.6px] z-[70] h-[172.8px] w-[508.8px] -translate-x-1/2 cursor-pointer touch-manipulation rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-white wolt-end-slide-up"
       onClick={(event) => {
         event.stopPropagation();
-        openClickthrough();
+        openDestination();
       }}
     />
   </>
@@ -43,7 +43,7 @@ export const Cta = ({ scene = "gameplay" }) => scene === "end" ? (
       className="wolt-cta-hit-enter absolute left-1/2 top-[1528.6px] z-40 h-[172.8px] w-[508.8px] -translate-x-1/2 cursor-pointer touch-manipulation rounded-full bg-transparent focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-white"
       onClick={(event) => {
         event.stopPropagation();
-        openClickthrough();
+        openDestination();
       }}
     />
   </>

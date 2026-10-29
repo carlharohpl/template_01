@@ -222,37 +222,16 @@
       });
       video.addEventListener("ended", () => signalPlayableLifecycle("gameEnd"));
 
-      // Handles clickthrough only after the MRAID bridge reaches an
+      // MRAID destination handling.
       // interactive state. Browser previews log clicks without navigating.
       function handleClickAction() {
-        const clickTarget =
-          window.clickTag ||
-          window.clickTag1 ||
-          window.clickthrough ||
-          window.clickThrough ||
-          "";
-
-        // Keep this canonical MRAID v2 click-through shape intact. Several
-        // network validators scan the exported source instead of executing it,
-        // so aliasing window.mraid or minifying this call can produce a false
-        // "mraid present but no mraid.open()" rejection.
-        if (
-          typeof mraid !== "undefined" &&
-          typeof mraid.open === "function" &&
-          window.isMraidUsable(mraid)
-        ) {
-          try {
-            if (clickTarget) {
-              mraid.open(clickTarget);
-            } else {
-              mraid.open();
-            }
-            return;
-          } catch (_error) {}
+        console.log("CTA clicked");
+        var mraid = window.mraid || {};
+        var injectedUrl = window.clickTag;
+        var destinationUrl = typeof injectedUrl === "string" ? injectedUrl.trim() : "";
+        if (typeof mraid.open === "function" && typeof window.isMraidUsable === "function" && window.isMraidUsable(mraid)) {
+          try { mraid.open(destinationUrl); } catch (error) { console.error("mraid.open failed", error); }
         }
-
-        // Browser previews have no MRAID bridge and must not navigate.
-        console.log("CTA_CLICKED");
       }
 
       let lastTapAt = 0;
