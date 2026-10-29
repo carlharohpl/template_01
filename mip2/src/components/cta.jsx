@@ -1,13 +1,13 @@
 import React from "react";
 
-// AppLovin MIP click-through: window.__mip.openClickthrough() (defined in
+// AppLovin MIP navigation: window.__mip.openDestination() (defined in
 // index.html's raw inline script) does the actual click-target resolution,
-// mraid.open(clickTarget) guard, and try/catch — kept there so the validator-scanned
+// mraid.open(destinationUrl) guard, and try/catch — kept there so the validator-scanned
 // literal text survives Vite's minifier. See CLAUDE.md before touching this.
 // eslint-disable-next-line react-refresh/only-export-components -- reused outside this file (see CLAUDE.md)
-export const openClickthrough = () => {
+export const openDestination = () => {
   console.log("CTA clicked");
-  window.__mip.openClickthrough();
+  window.__mip.openDestination();
 };
 
 export const Cta = () => (
@@ -16,7 +16,7 @@ export const Cta = () => (
     aria-label="Open offer"
     onClick={(event) => {
       event.stopPropagation();
-      openClickthrough();
+      openDestination();
     }}
   />
 );

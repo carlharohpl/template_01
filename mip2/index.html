@@ -5,7 +5,7 @@
          locally and inject their real MRAID bridge instead of letting it hit
          the network. Must stay the first script tag. In a plain browser (or
          a network that doesn't use this convention) it just 404s harmlessly
-         and window.mraid stays undefined. Click-through requires a usable
+         and window.mraid stays undefined. Navigation requires a usable
          MRAID bridge and does nothing while it is unavailable. -->
     <script src="mraid.js"></script>
     <script>
@@ -68,20 +68,12 @@
           }
         };
 
-        // Click-through: resolve the standard click-tag variables and use
-        // mraid.open(clickTarget) accepts any string, including an empty target.
-        window.__mip.openClickthrough = function handleMraidOpen() {
+        // Resolve only the platform-injected tag; never assign a default tag.
+        // Keep an explicit empty argument for the host-resolved destination.
+        window.__mip.openDestination = function handleMraidOpen() {
           var mraid = window.mraid || {};
-          var clickTarget =
-            window.clickTag ||
-            window.clickTag1 ||
-            window.clickthrough ||
-            window.clickThrough ||
-            "";
-
-          if (typeof clickTarget !== "string") {
-            return;
-          }
+          var injectedUrl = window.clickTag;
+          var destinationUrl = typeof injectedUrl === "string" ? injectedUrl.trim() : "";
 
           if (
             typeof mraid.open === "function" &&
@@ -89,7 +81,7 @@
             window.isMraidUsable(mraid)
           ) {
             try {
-              mraid.open(clickTarget);
+              mraid.open(destinationUrl);
               return;
             } catch (error) {
               console.error("mraid.open failed", error);
@@ -118,7 +110,7 @@
         // AppLovin MIP: pause/resume real <video>/<audio> elements based on
         // MRAID viewability. Call from init() before starting media
         // playback. Must stay here (raw inline script), not bundled JS —
-        // same reason as window.__mip.ready/openClickthrough above.
+        // same reason as window.__mip.ready/openDestination above.
         window.__mip.setupMediaViewability = function () {
           var mraid = window.mraid;
           if (!mraid) return;
