@@ -6,7 +6,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 import { base64Packaging } from './src/hooks/base64Packaging.js'
 import tailwindcss from '@tailwindcss/vite'
 
-// Serve the actual export before Vite's development HTML transformation.
+// Reserve /creative.html for the last export; root uses normal Vite HMR.
 function localCreativePreview() {
   return {
     name: "local-creative-preview",
@@ -16,11 +16,11 @@ function localCreativePreview() {
         if (!["GET", "HEAD"].includes(req.method)) return next();
         const pathname = req.url?.split("?", 1)[0];
         if (pathname === "/dev.html") {
-          // Keep source editing and hot reload available on an explicit route.
+          // Keep the existing development alias alongside the root page.
           req.url = "/index.html" + req.url.slice(pathname.length);
           return next();
         }
-        if (!["/", "/index.html", "/creative.html"].includes(pathname)) return next();
+        if (pathname !== "/creative.html") return next();
 
         res.setHeader("Cache-Control", "no-store");
         try {
@@ -35,7 +35,7 @@ function localCreativePreview() {
           res.statusCode = error.code === "ENOENT" ? 503 : 500;
           res.setHeader("Content-Type", "text/plain; charset=utf-8");
           res.end(req.method === "HEAD" ? undefined :
-            "Built creative unavailable. Run npm run build, then reload this page. Live development is available at /dev.html.");
+            "Built creative unavailable. Run npm run build when an export is needed, then reload this page. Live development is available at /.");
         }
       });
     },
