@@ -13,6 +13,7 @@ export const openDestination = () => {
 export const Cta = () => (
   <button
     type="button"
+    data-sfx-exclude=""
     aria-label="Open offer"
     onClick={(event) => {
       event.stopPropagation();
