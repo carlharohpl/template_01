@@ -10,44 +10,54 @@
     <script src="mraid.js"></script>
     <script>
       (function () {
-        let mraidIsReady = false;
-        let mraidReadyListenerAttached = false;
+        const readiness = new WeakMap();
+        const pendingReadiness = new Set();
 
-        function trackMraidReadiness(mraid) {
-          if (
-            mraidReadyListenerAttached ||
-            !mraid ||
-            typeof mraid.addEventListener !== "function"
-          ) {
-            return;
-          }
-
-          try {
-            mraid.addEventListener("ready", function () {
-              mraidIsReady = true;
-            });
-            mraidReadyListenerAttached = true;
-          } catch (error) {
-            // getState() remains the primary readiness check.
+        function removeReadiness(record) {
+          pendingReadiness.delete(record);
+          if (record.remove) {
+            try { record.remove(); } catch (error) { /* Host disposed. */ }
+            record.remove = null;
           }
         }
 
-        window.isMraidUsable = function (mraid) {
-          if (!mraid) {
-            return false;
+        function trackMraidReadiness(bridge) {
+          const record = readiness.get(bridge) || { ready: false, remove: null };
+          readiness.set(bridge, record);
+          if (record.ready || pendingReadiness.has(record)) return record;
+          if (typeof bridge.addEventListener === "function") {
+            const onReady = function () {
+              if (!pendingReadiness.has(record)) return;
+              record.ready = true;
+              removeReadiness(record);
+            };
+            try {
+              pendingReadiness.add(record);
+              if (typeof bridge.removeEventListener === "function") {
+                record.remove = bridge.removeEventListener.bind(bridge, "ready", onReady);
+              }
+              bridge.addEventListener("ready", onReady);
+            } catch (error) {
+              removeReadiness(record);
+              readiness.delete(bridge);
+            }
           }
+          return record;
+        }
 
-          trackMraidReadiness(mraid);
-          if (typeof mraid.getState !== "function") {
-            return true;
-          }
-
+        window.isMraidUsable = function (bridge) {
+          if (!bridge || (typeof bridge !== "object" && typeof bridge !== "function")) return false;
+          const record = trackMraidReadiness(bridge);
           try {
-            const state = mraid.getState();
-            return state === "default" || state === "expanded";
+            if (typeof bridge.getState !== "function") return bridge === window.mraid && record.ready;
+            const state = bridge.getState();
+            return bridge === window.mraid && (state === "default" || state === "expanded");
           } catch (error) {
-            return mraidIsReady;
+            return bridge === window.mraid && record.ready;
           }
+        };
+        window.isMraidUsable.dispose = function () {
+          pendingReadiness.forEach(removeReadiness);
         };
       })();
     </script>
@@ -55,37 +65,71 @@
       (function () {
         window.__mip = window.__mip || {};
 
-        // AppLovin loading-state guard, in the exact if/else shape the
-        // validator scans for. Must stay here (raw inline script) — see
-        // CLAUDE.md for why this can't live in bundled JS.
+        // Keep initialization and destination guards raw so packaging can
+        // inspect executable code without bundler rewrites.
         window.__mip.ready = function (callback) {
-          if (typeof mraid === "undefined") {
-            callback();
-          } else if (mraid.getState() === "loading") {
-            mraid.addEventListener("ready", callback);
-          } else {
+          let cancelled = false;
+          let completed = false;
+          let removeReady = null;
+          function cleanup() {
+            if (removeReady) {
+              try { removeReady(); } catch (error) { /* Host disposed. */ }
+              removeReady = null;
+            }
+          }
+          function finish() {
+            if (cancelled || completed) return;
+            completed = true;
+            cleanup();
             callback();
           }
+          function waitForReady(bridge) {
+            if (typeof bridge.addEventListener !== "function") return;
+            const onReady = function () {
+              cleanup();
+              if (cancelled || completed) return;
+              if (bridge === window.mraid) finish();
+              else check();
+            };
+            try {
+              if (typeof bridge.removeEventListener === "function") {
+                removeReady = bridge.removeEventListener.bind(bridge, "ready", onReady);
+              }
+              bridge.addEventListener("ready", onReady);
+            } catch (error) { cleanup(); }
+          }
+          function check() {
+            if (!window.mraid) { finish(); return; }
+            try {
+              if (window.mraid.getState() === "loading") {
+                waitForReady(window.mraid);
+              } else if (window.isMraidUsable(window.mraid)) {
+                finish();
+              } else {
+                waitForReady(window.mraid);
+              }
+            } catch (error) { waitForReady(window.mraid); }
+          }
+          check();
+          return function () { cancelled = true; cleanup(); };
         };
 
         // Resolve only the platform-injected tag; never assign a default tag.
         // Keep an explicit empty argument for the host-resolved destination.
         window.__mip.openDestination = function handleMraidOpen() {
-          var mraid = window.mraid || {};
           var injectedUrl = window.clickTag;
           var destinationUrl = typeof injectedUrl === "string" ? injectedUrl.trim() : "";
-
-          if (
-            typeof mraid.open === "function" &&
-            typeof window.isMraidUsable === "function" &&
-            window.isMraidUsable(mraid)
-          ) {
-            try {
-              mraid.open(destinationUrl);
-              return;
-            } catch (error) {
-              console.error("mraid.open failed", error);
+          try {
+            if (
+              window.mraid &&
+              typeof window.mraid.open === "function" &&
+              typeof window.isMraidUsable === "function" &&
+              window.isMraidUsable(window.mraid)
+            ) {
+              window.mraid.open(destinationUrl);
             }
+          } catch (error) {
+            console.error("mraid.open failed", error);
           }
         };
       })();
@@ -95,6 +139,7 @@
         window.__mip = window.__mip || {};
 
         var mraidViewable = true;
+        var disposeMedia = null;
 
         function syncMediaState() {
           var media = document.querySelectorAll("video, audio");
@@ -112,25 +157,35 @@
         // playback. Must stay here (raw inline script), not bundled JS —
         // same reason as window.__mip.ready/openDestination above.
         window.__mip.setupMediaViewability = function () {
-          var mraid = window.mraid;
-          if (!mraid) return;
+          if (disposeMedia) disposeMedia();
+          var removeViewable = null;
+          var active = true;
+          mraidViewable = true;
 
           function handleViewableChange(viewable) {
+            if (!active) return;
             mraidViewable = Boolean(viewable);
             syncMediaState();
           }
-
-          if (typeof mraid.isViewable === "function") {
-            try {
-              mraidViewable = Boolean(mraid.isViewable());
-            } catch (error) {
-              mraidViewable = true;
+          try {
+            if (typeof window.mraid?.isViewable === "function") {
+              mraidViewable = Boolean(window.mraid.isViewable());
             }
-          }
-
-          if (typeof mraid.addEventListener === "function") {
-            mraid.addEventListener("viewableChange", handleViewableChange);
-          }
+            if (typeof window.mraid?.addEventListener === "function" &&
+                typeof window.mraid?.removeEventListener === "function") {
+              removeViewable = window.mraid.removeEventListener.bind(window.mraid, "viewableChange", handleViewableChange);
+              window.mraid.addEventListener("viewableChange", handleViewableChange);
+            }
+          } catch (error) { /* Browser without host lifecycle support. */ }
+          syncMediaState();
+          disposeMedia = function () {
+            active = false;
+            if (removeViewable) {
+              try { removeViewable(); } catch (error) { /* Host disposed. */ }
+              removeViewable = null;
+            }
+          };
+          return disposeMedia;
         };
       })();
     </script>

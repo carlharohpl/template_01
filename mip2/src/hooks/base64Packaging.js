@@ -97,14 +97,14 @@ function prepareEndCardCalendar(source, label) {
   return { source: editsTo(source, edits), usesCalendar };
 }
 
-function walk(node, visit) {
+function walk(node, visit, parent = null, field = null) {
   if (node === null || node === undefined) return;
-  visit(node);
+  visit(node, parent, field);
   if (typeof node !== 'object') return;
   for (const [key, value] of Object.entries(node)) {
     if (key === 'parentNode' || key === 'loc' || key === 'sourceCodeLocation') continue;
-    if (Array.isArray(value)) value.forEach(child => walk(child, visit));
-    else if (value && typeof value === 'object') walk(value, visit);
+    if (Array.isArray(value)) value.forEach(child => walk(child, visit, node, key));
+    else if (value && typeof value === 'object') walk(value, visit, node, key);
   }
 }
 
@@ -115,7 +115,7 @@ function editsTo(source, edits) {
 }
 
 export function decodeBase64(payload, label) {
-  if (!payload || payload.length % 4 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(payload)) {
+  if (!payload || payload.length % 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(payload)) {
     fail(`${label}: invalid or empty Base64 payload`);
   }
   const bytes = Buffer.from(payload, 'base64');
@@ -131,14 +131,125 @@ function checkNavigation(text, label) {
 }
 
 function property(node) {
-  return node?.computed ? node.property?.value : node?.property?.name;
+  return node?.computed ? staticString(node.property) : node?.property?.name;
 }
 
-function inspectJs(code, label, inspectString, inlineHandler = false, sourceType = 'unambiguous', main = false) {
+function staticString(node) {
+  if (node?.type === 'StringLiteral') return node.value;
+  if (node?.type === 'BinaryExpression' && node.operator === '+') {
+    const left = staticString(node.left), right = staticString(node.right);
+    if (left !== undefined && right !== undefined) return left + right;
+  }
+}
+
+function bridgeValue(node) {
+  if (['MemberExpression', 'OptionalMemberExpression'].includes(node?.type) && property(node) === 'mraid') return true;
+  if (['mraid', 'window.mraid', 'self.mraid', 'globalThis.mraid', 'parent.mraid', 'window.parent.mraid'].includes(memberPath(node))) return true;
+  if (node?.type === 'LogicalExpression') return bridgeValue(node.left) || bridgeValue(node.right);
+  if (node?.type === 'ConditionalExpression') return bridgeValue(node.consequent) || bridgeValue(node.alternate);
+  if (node?.type === 'SequenceExpression') return bridgeValue(node.expressions.at(-1));
+  if (node?.type === 'AssignmentExpression') return bridgeValue(node.right);
+  return false;
+}
+
+function inspectTracking(tree, label, endCard) {
+  const navigationBodies = [];
+  walk(tree, node => {
+    if (node.type === 'AssignmentExpression' && memberPath(node.left) === 'window.__mip.openDestination') navigationBodies.push(node.right);
+  });
+  walk(tree, (node, parent, field) => {
+    const member = ['MemberExpression', 'OptionalMemberExpression'].includes(node.type);
+    if (node.type === 'Identifier' && ['clickTag', 'mraid'].includes(node.name) &&
+        !(field === 'property' && ['MemberExpression', 'OptionalMemberExpression'].includes(parent?.type) && !parent.computed)) {
+      fail(`${label}: reserved bare/local tracking or bridge name ${node.name}; use the live window property`);
+    }
+    if (member && property(node) === 'clickTag') {
+      const writing = (parent?.type === 'AssignmentExpression' && field === 'left') ||
+        parent?.type === 'UpdateExpression' || (parent?.type === 'UnaryExpression' && parent.operator === 'delete');
+      if (writing || endCard || memberPath(node.object) !== 'window') {
+        fail(`${label}: only the parent may read the injected window.clickTag; assignments and child copies are forbidden`);
+      }
+    }
+    if (node.type === 'ObjectProperty' && ['clickTag', 'mraid'].includes(node.key?.name ?? staticString(node.key))) {
+      fail(`${label}: reserved tracking/bridge property creation or destructuring is forbidden`);
+    }
+    if (member && property(node) === 'open' && bridgeValue(node.object)) {
+      if (endCard || !navigationBodies.some(body => node.start >= body.start && node.end <= body.end)) {
+        fail(`${label}: MRAID navigation belongs only to the parent's approved raw handler; delegate through the shared activation function`);
+      }
+    }
+    if ((node.type === 'VariableDeclarator' && bridgeValue(node.init)) ||
+        (node.type === 'AssignmentExpression' && bridgeValue(node.right)) ||
+        (node.type === 'AssignmentPattern' && bridgeValue(node.right)) ||
+        (node.type === 'ObjectProperty' && bridgeValue(node.value)) ||
+        (node.type === 'ReturnStatement' && bridgeValue(node.argument))) {
+      fail(`${label}: cached MRAID bridge alias; read window.mraid live and bind lifecycle removal methods to their registering instance`);
+    }
+    if (node.type === 'VariableDeclarator' && node.id?.type === 'ObjectPattern' &&
+        node.id.properties.some(item => (item.key?.name ?? staticString(item.key)) === 'mraid')) {
+      fail(`${label}: destructured MRAID bridge alias is forbidden`);
+    }
+    if (member && property(node) === 'mraid' &&
+        ((parent?.type === 'AssignmentExpression' && field === 'left') || parent?.type === 'UpdateExpression')) {
+      fail(`${label}: do not assign or forward the host bridge`);
+    }
+    if (!['CallExpression', 'OptionalCallExpression'].includes(node.type)) return;
+    const callee = memberPath(node.callee);
+    if (endCard && /(?:^|\.)__mip\.activateDestination$/.test(callee) &&
+        (!['parent.__mip.activateDestination', 'window.parent.__mip.activateDestination'].includes(callee) || node.arguments.length)) {
+      fail(`${label}: delegate with parent.__mip.activateDestination() and no destination arguments`);
+    }
+    if (['Object.defineProperty', 'Reflect.defineProperty', 'Reflect.set', 'Reflect.deleteProperty'].includes(callee) &&
+        ['clickTag', 'mraid'].includes(staticString(node.arguments[1]))) {
+      fail(`${label}: reflective tracking/bridge writes are forbidden`);
+    }
+    if (endCard && (/(?:^|\.)mraid\.open$/.test(callee) || /(?:^|\.)__mip\.openDestination$/.test(callee))) {
+      fail(`${label}: internal offer buttons must delegate to parent.__mip.activateDestination() without local logging or destination handling`);
+    }
+    if (endCard && callee === 'console.log' && staticString(node.arguments[0]) === 'CTA clicked') {
+      fail(`${label}: CTA logging belongs to the parent's shared activation handler`);
+    }
+  });
+}
+
+// Compare parsed executable code, not comments that merely contain guard text.
+const rawDestination = `function handleMraidOpen() {
+  var injectedUrl = window.clickTag;
+  var destinationUrl = typeof injectedUrl === "string" ? injectedUrl.trim() : "";
+  try {
+    if (window.mraid && typeof window.mraid.open === "function" &&
+        typeof window.isMraidUsable === "function" && window.isMraidUsable(window.mraid)) {
+      window.mraid.open(destinationUrl);
+    }
+  } catch (error) { console.error("mraid.open failed", error); }
+}`;
+function structural(node) {
+  if (Array.isArray(node)) return node.map(structural);
+  if (!node || typeof node !== 'object') return node;
+  return Object.fromEntries(Object.entries(node)
+    .filter(([key]) => !['start', 'end', 'loc', 'extra', 'leadingComments', 'trailingComments', 'innerComments'].includes(key))
+    .map(([key, value]) => [key, structural(value)]));
+}
+const expectedDestination = JSON.stringify(structural(parseJs(`(${rawDestination})`).program.body[0].expression));
+function checkRawDestination(tree, label, required = false) {
+  let count = 0;
+  walk(tree, node => {
+    if (node.type !== 'AssignmentExpression' || memberPath(node.left) !== 'window.__mip.openDestination') return;
+    count++;
+    if (JSON.stringify(structural(node.right)) !== expectedDestination) {
+      fail(`${label}: raw destination handler must use the approved live window.mraid guards, injected tag normalization, explicit argument and try/catch`);
+    }
+  });
+  if (required && count !== 1) fail(`${label}: one executable raw live MRAID destination handler is required`);
+}
+
+function inspectJs(code, label, inspectString, inlineHandler = false, sourceType = 'unambiguous', endCard = false) {
   checkNavigation(code, label);
   let tree;
   try { tree = parseJs(code, { sourceType, plugins: ['jsx'], allowReturnOutsideFunction: inlineHandler }); }
   catch (error) { fail(`${label}: cannot validate JavaScript: ${error.message}`); }
+  inspectTracking(tree, label, endCard);
+  checkRawDestination(tree, label);
   // Navigation destinations are not media requests. Preserve supplied URL
   // literals in MRAID arguments and destination variables.
   const destinations = new WeakSet();
@@ -149,10 +260,6 @@ function inspectJs(code, label, inspectString, inlineHandler = false, sourceType
     if (node?.type === 'ConditionalExpression') { markDestination(node.consequent); markDestination(node.alternate); }
   };
   walk(tree, node => {
-    if (main && (
-      (['AssignmentExpression', 'UpdateExpression'].includes(node.type) && /^(?:(?:window|self|globalThis)\.)?clickTag$/.test(memberPath(node.left ?? node.argument))) ||
-      (node.type === 'VariableDeclarator' && node.id?.name === 'clickTag')
-    )) fail(`${label}: the main creative must not declare or overwrite the platform-injected window.clickTag`);
     if (node.type === 'AssignmentExpression' && /^(?:(?:window|self|globalThis)\.)?(?:clickTag|clickTarget|destinationUrl)$/.test(memberPath(node.left))) markDestination(node.right);
     if (node.type === 'VariableDeclarator' && /^(?:clickTag|clickTarget|destinationUrl)$/.test(node.id?.name)) markDestination(node.init);
     if (node.type === 'StringLiteral') inspectString(node.value, node, destinations.has(node));
@@ -188,7 +295,7 @@ function inspectJs(code, label, inspectString, inlineHandler = false, sourceType
 
 function memberPath(node) {
   if (node?.type === 'Identifier') return node.name;
-  if (node?.type === 'MemberExpression') return `${memberPath(node.object)}.${property(node)}`;
+  if (['MemberExpression', 'OptionalMemberExpression'].includes(node?.type)) return `${memberPath(node.object)}.${property(node)}`;
   return '';
 }
 
@@ -262,7 +369,7 @@ export function validateHtml(html, { label = 'creative', main = false, documents
       const code = node.childNodes?.map(child => child.value || '').join('') || '';
       if (!attrs.type || /^(?:module|(?:text|application)\/javascript)$/.test(attrs.type)) {
         if (code.trim()) {
-          inspectJs(code, label, (value, _node, destination) => inspectValue(value, label, documents, depth, destination), false, attrs.type === 'module' ? 'module' : 'script', main);
+          inspectJs(code, label, (value, _node, destination) => inspectValue(value, label, documents, depth, destination), false, attrs.type === 'module' ? 'module' : 'script', !main);
           if (calendarEdits(code, label).edits.length) fail(`${label}: calendar content bypasses the shared preview clock; use window.__mip.calendarClock.now() (or import the shared singleton in gameplay).`);
         }
       } else if (code.trim()) {
@@ -289,7 +396,7 @@ export function validateHtml(html, { label = 'creative', main = false, documents
     for (const [name, value] of Object.entries(attrs)) {
       if (name === 'srcdoc') fail(`${label}: raw embedded HTML srcdoc; decode a build-time end-card import at runtime`);
       if (name === 'style') validateCss(value, label, documents, depth);
-      if (name.startsWith('on')) inspectJs(value, label, (item, _node, destination) => inspectValue(item, label, documents, depth, destination), true, 'script', main);
+      if (name.startsWith('on')) inspectJs(value, label, (item, _node, destination) => inspectValue(item, label, documents, depth, destination), true, 'script', !main);
       if (['src', 'href', 'xlink:href', 'poster', 'data', 'action', 'formaction', 'background'].includes(name)) {
         if (node.tagName === 'script' && name === 'src' && value === 'mraid.js') continue;
         if (value.startsWith('#')) continue;
@@ -310,7 +417,10 @@ export function validateHtml(html, { label = 'creative', main = false, documents
   });
   if (main) {
     if (scripts[0]?.attrs.find(attr => attr.name === 'src')?.value !== 'mraid.js') fail(`${label}: mraid.js must remain the first script`);
-    for (const required of ['window.__mip.openDestination = function handleMraidOpen()', 'window.isMraidUsable(mraid)', 'mraid.open(destinationUrl)', 'mraid.getState() === "loading"']) {
+    const raw = scripts[2];
+    if (!raw || raw.attrs.some(attr => ['src', 'type'].includes(attr.name))) fail(`${label}: keep destination handling in the second raw inline script`);
+    checkRawDestination(parseJs(raw.childNodes.map(child => child.value || '').join('')), label, true);
+    for (const required of ['window.__mip.openDestination = function handleMraidOpen()', 'window.isMraidUsable(window.mraid)', 'window.mraid.open(destinationUrl)', 'window.mraid.getState() === "loading"']) {
       if (!html.includes(required)) fail(`${label}: required raw MRAID implementation missing: ${required}`);
     }
   }
@@ -347,23 +457,8 @@ function base64SvgUrls(text) {
 // Compatibility changes apply only to imported end cards, before inspection.
 // Edit source ranges rather than reserializing the document or replacing text
 // inside JavaScript strings/comments. Never write these changes back to disk.
-function compatibleEndCard(source, label) {
+function compatibleEndCard(source) {
   const edits = [];
-  const correctCalls = (code, inlineHandler = false) => {
-    let tree;
-    try {
-      tree = parseJs(code, { sourceType: 'unambiguous', allowReturnOutsideFunction: inlineHandler });
-    } catch (error) {
-      fail(`${label}: cannot parse end-card JavaScript: ${error.message}`);
-    }
-    const calls = [];
-    walk(tree, node => {
-      if (node.type === 'CallExpression' && /(?:^|\.)mraid\.open$/.test(memberPath(node.callee)) && node.arguments.length === 0) {
-        calls.push({ start: node.end - 1, end: node.end - 1, value: '""' });
-      }
-    });
-    return editsTo(code, calls);
-  };
   walk(parseHtml(source, { sourceCodeLocationInfo: true }), node => {
     if (!node.tagName) return;
     const location = node.sourceCodeLocation;
@@ -371,26 +466,6 @@ function compatibleEndCard(source, label) {
       const emptySrc = node.attrs.find(attr => attr.name === 'src' && attr.value === '');
       const range = location?.attrs?.src;
       if (emptySrc && range) edits.push({ start: range.startOffset, end: range.endOffset, value: '' });
-    }
-    if (node.tagName === 'script' && location?.endTag) {
-      const attrs = Object.fromEntries(node.attrs.map(attr => [attr.name, attr.value]));
-      if (!Object.hasOwn(attrs, 'src') && (!attrs.type || /^(?:module|(?:text|application)\/javascript)$/.test(attrs.type))) {
-        const start = location.startTag.endOffset;
-        const end = location.endTag.startOffset;
-        const code = source.slice(start, end);
-        const corrected = correctCalls(code);
-        if (corrected !== code) edits.push({ start, end, value: corrected });
-      }
-    }
-    for (const attr of node.attrs) {
-      if (!attr.name.startsWith('on')) continue;
-      const range = location?.attrs?.[attr.name];
-      if (!range) continue;
-      const corrected = correctCalls(attr.value, true);
-      if (corrected !== attr.value) {
-        const encoded = corrected.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
-        edits.push({ start: range.startOffset, end: range.endOffset, value: `${attr.name}="${encoded}"` });
-      }
     }
   });
   return editsTo(source, edits);
@@ -401,7 +476,7 @@ function compatibleEndCard(source, label) {
 // only Base64 and decodes UTF-8 at runtime; the source document stays editable.
 export async function packageEndCard(file, watch = () => {}) {
   watch(file);
-  const { source, usesCalendar } = prepareEndCardCalendar(compatibleEndCard(await fs.readFile(file, 'utf8'), file), file);
+  const { source, usesCalendar } = prepareEndCardCalendar(compatibleEndCard(await fs.readFile(file, 'utf8')), file);
   const edits = [];
   const pending = [];
   const local = value => {
@@ -422,7 +497,7 @@ export async function packageEndCard(file, watch = () => {}) {
             if (literal.type !== 'StringLiteral') fail(`${file}: use a static string for end-card media references`);
             pending.push(inlineUrl(value).then(url => edits.push({ start: location.startTag.endOffset + literal.start, end: location.startTag.endOffset + literal.end, value: JSON.stringify(url) })));
           }
-        });
+        }, false, 'unambiguous', true);
       }
     }
     for (const attr of node.attrs || []) {
@@ -463,6 +538,8 @@ export function base64Packaging() {
         documents.clear();
         const shell = await fs.readFile(path.join(config.root, 'index.html'), 'utf8');
         rawScripts = [...shell.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
+        for (const script of rawScripts) inspectJs(script, 'index.html', value => checkNavigation(value, 'index.html'));
+        checkRawDestination(parseJs(rawScripts[1] || ''), 'index.html', true);
       },
       async load(id) {
         const [file, query = ''] = id.split('?');
@@ -485,7 +562,7 @@ export function base64Packaging() {
         }
       },
       transform(code, id) {
-        if (config.command !== 'build' || id.startsWith('\0') || id.includes('node_modules') || !/\.[cm]?[jt]sx?(?:\?|$)/.test(id)) return;
+        if (id.startsWith('\0') || id.includes('node_modules') || !/\.[cm]?[jt]sx?(?:\?|$)/.test(id)) return;
         inspectJs(code, id, value => {
           // Imports are resolved by Vite; final output checks their URLs.
           checkNavigation(value, id);
