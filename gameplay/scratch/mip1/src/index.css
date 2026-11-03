@@ -340,3 +340,6 @@
 
 /* Keep mounted artwork at its entrance pose until prepared and painted. */
 [data-entrances-running="false"] :is(img, button, svg, [data-section], .im8-scratch-enter, .musely-grid-enter) { animation-play-state: paused; }
+
+/* The CTA owns image preparation; the parent still gates all scene entrances. */
+[data-cta-ready="false"] { animation-play-state: paused; pointer-events: none; }

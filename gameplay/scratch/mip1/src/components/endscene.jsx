@@ -70,6 +70,7 @@ const EndScene = ({ onReady }) => {
       />
       <button
         type="button"
+        data-sfx-exclude=""
         aria-label="Open offer"
         disabled={!visible}
         className="absolute inset-0 z-30 h-full w-full cursor-pointer bg-transparent focus-visible:outline-4 focus-visible:-outline-offset-4"

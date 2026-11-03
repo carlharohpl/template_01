@@ -35,6 +35,28 @@ function calendarEdits(code, label) {
   const edits = [];
   let usesCalendar = false;
   const tree = parseJs(code, { sourceType: 'unambiguous', allowReturnOutsideFunction: true });
+  // A known empty SIP date template has no visible calendar content. Match both
+  // exact helper bodies in the same scope; custom renderers stay on the clock path.
+  const inactiveBodies = [];
+  walk(tree, scope => {
+    if (!["Program", "BlockStatement"].includes(scope.type)) return;
+    const statements = scope.body;
+    const emptyTokens = statements.some(statement => statement.type === 'VariableDeclaration' && statement.kind === 'const' &&
+      statement.declarations.some(item => item.id?.name === 'dateTokens' && item.init?.type === 'StringLiteral' && item.init.value === ''));
+    if (!emptyTokens) return;
+    const render = statements.find(item => item.type === 'FunctionDeclaration' && item.id?.name === 'renderSipDate');
+    const schedule = statements.find(item => item.type === 'FunctionDeclaration' && item.id?.name === 'scheduleSipDateMidnight');
+    if (!render || !schedule || render.params.length || schedule.params.length) return;
+    const renderCode = code.slice(render.body.start, render.body.end);
+    const scheduleCode = code.slice(schedule.body.start, schedule.body.end).replace(/\/\/[^\n]*/g, '');
+    const renderer = /^\{\s*var now = resolveSipEffectiveDate\(Date\.now\(\), dateRecurrence, dateOffsetDays\);\s*dateTextEl\.textContent = formatSipDate\(dateTokens, now, dateLocale\);\s*updateDynamicDatePosition\(\);\s*\}$/;
+    const scheduler = /^\{\s*var now = new Date\(\);\s*var next = new Date\(\s*now\.getFullYear\(\), now\.getMonth\(\), now\.getDate\(\) \+ 1,\s*0, 0, 1, 0\s*\);\s*setTimeout\(function \(\) \{\s*renderSipDate\(\);\s*scheduleSipDateMidnight\(\);\s*\}, next\.getTime\(\) - now\.getTime\(\)\);\s*\}$/;
+    if (!renderer.test(renderCode) || !scheduler.test(scheduleCode)) return;
+    for (const fn of [render, schedule]) {
+      inactiveBodies.push(fn.body);
+      edits.push({ start: fn.body.start, end: fn.body.end, value: '{}' });
+    }
+  });
   const freshDate = node => node?.type === 'NewExpression' && memberPath(node.callee) === 'Date' && node.arguments.length === 0;
   const timestamp = node => node?.type === 'CallExpression' && node.arguments.length === 0 &&
     (memberPath(node.callee) === 'Date.now' ||
@@ -44,6 +66,7 @@ function calendarEdits(code, label) {
     edits.push({ start: node.start, end: node.end, value });
   };
   walk(tree, node => {
+    if (inactiveBodies.some(body => node.start >= body.start && node.end <= body.end)) return;
     if (node.type === 'MemberExpression' && memberPath(node) === 'window.__mip.calendarClock') usesCalendar = true;
     if (node.type !== 'CallExpression') return;
     const method = property(node.callee);

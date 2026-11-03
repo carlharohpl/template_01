@@ -1,10 +1,10 @@
 import { prepareImage } from "./hooks/prepareImage";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import useScaleUI from "./hooks/useScaleUI";
-import useSound, { handleUnlockGesture, playSound, stopSound, waitForSoundCompletion } from "./hooks/useSound";
-import scratchingSound from "./assets/sounds/scratching.mp3";
-import gameWinSound from "./assets/sounds/gamewin5.mp3";
-import endSceneSound from "./assets/sounds/endscene3.wav";
+import useSound, { bindSoundGestures, handleUnlockGesture, playSound, retrySound, stopSound, waitForSoundCompletion } from "./hooks/useSound";
+import scratchingSound from "./assets/sounds/scratching.mp3?inline";
+import gameWinSound from "./assets/sounds/gamewin5.mp3?inline";
+import endSceneSound from "./assets/sounds/endscene3.wav?inline";
 import { Cta } from "./components/cta";
 import EndScene from "./components/endscene";
 import logo from "./assets/img/logo.webp";
@@ -36,9 +36,9 @@ const sectionAt = (x, y) => SECTIONS.findIndex((section) =>
 
 const App = () => {
   const { appRef, wrapperRef } = useScaleUI(1080, 1920);
-  const scratchAudio = useSound(scratchingSound);
-  const gameWinAudio = useSound(gameWinSound, { lowLatency: true });
-  const endSceneAudio = useSound(endSceneSound, { lowLatency: true });
+  const scratchAudio = useSound(scratchingSound, { backend: "media" });
+  const gameWinAudio = useSound(gameWinSound, { backend: "media", overflow: "drop-new" });
+  const endSceneAudio = useSound(endSceneSound, { backend: "media", overflow: "drop-new" });
   const scratchSourceRef = useRef(null);
   const gameWinSourceRef = useRef(null);
   const endSceneSourceRef = useRef(null);
@@ -203,24 +203,19 @@ const App = () => {
     };
   }, [scene, stopScratching]);
 
-  const soundWhileScratching = () => {
-    if (!scratchSourceRef.current) {
-      scratchSourceRef.current = playSound(scratchAudio, { volume: 0.65, loop: true });
+  const soundWhileScratching = (gesture) => {
+    if (!["pending", "playing"].includes(scratchSourceRef.current?.status)) {
+      scratchSourceRef.current = playSound(scratchAudio, { volume: 0.65, loop: true, gesture });
     }
     if (scratchSourceRef.current) scratchSourceRef.current.muted = false;
+    retrySound(scratchSourceRef.current, gesture);
     window.clearTimeout(scratchIdleRef.current);
     // Keep one loop across overlapping strokes and edge crossings; idle is silent.
     scratchIdleRef.current = window.setTimeout(muteScratching, 160);
   };
 
   useEffect(() => {
-    const surface = scratchSurfaceRef.current;
-    const unlock = (event) => {
-      if (completedRef.current || event.pointerType === "touch") return;
-      if (event.type === "pointerdown" || scratchRef.current?.pointerId === event.pointerId) {
-        handleUnlockGesture(event);
-      }
-    };
+    const unbind = bindSoundGestures(wrapperRef.current);
     const stopAll = () => {
       if (revealFrameRef.current !== null) cancelAnimationFrame(revealFrameRef.current);
       revealFrameRef.current = null;
@@ -235,20 +230,17 @@ const App = () => {
     const handleVisibility = () => {
       if (document.hidden) stopAll();
     };
-    surface.addEventListener("pointerdown", unlock);
-    surface.addEventListener("pointermove", unlock);
     window.addEventListener("blur", stopAll);
     window.addEventListener("pagehide", stopAll);
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       stopAll();
-      surface.removeEventListener("pointerdown", unlock);
-      surface.removeEventListener("pointermove", unlock);
+      unbind();
       window.removeEventListener("blur", stopAll);
       window.removeEventListener("pagehide", stopAll);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [stopScratching]);
+  }, [stopScratching, wrapperRef]);
 
   const checkProgress = () => {
     const state = scratchRef.current;
@@ -391,7 +383,7 @@ const App = () => {
     state.bounds = bounds;
     setScene("scratching");
     scratchSamples([event], state.bounds);
-    if (state.previous) soundWhileScratching();
+    if (state.previous) soundWhileScratching(event.nativeEvent || event);
     checkProgress();
   };
 
@@ -402,7 +394,7 @@ const App = () => {
     const state = scratchRef.current;
     state.bounds ||= event.currentTarget.getBoundingClientRect();
     scratchSamples(samples.length ? samples : [event], state.bounds);
-    if (scratchRef.current.previous) soundWhileScratching();
+    if (scratchRef.current.previous) soundWhileScratching(event.nativeEvent || event);
     else muteScratching();
     checkProgress();
   };
@@ -453,12 +445,6 @@ const App = () => {
       handleUnlockGesture(event);
       handlePointerDown(input);
     } else if (event.type === "touchmove") {
-      // Retry blocked audio occasionally, not on every high-frequency touch sample.
-      const now = performance.now();
-      if (scratchSourceRef.current?.paused && now - (state.audioRetryAt || 0) > 250) {
-        state.audioRetryAt = now;
-        handleUnlockGesture(event);
-      }
       handlePointerMove(input);
     } else {
       handlePointerEnd(input);
@@ -520,13 +506,13 @@ const App = () => {
             <img
               src={logo}
               alt="I·M·8"
-              className="im8-logo-enter pointer-events-none absolute left-1/2 top-[87px] z-10 w-[272px] -translate-x-1/2 select-none"
+              className="pointer-events-none absolute left-1/2 top-[87px] z-10 w-[272px] -translate-x-1/2 select-none im8-logo-enter"
               draggable="false"
             />
             <img
               src={headline}
               alt="Claim Your Exclusive Offer"
-              className="im8-headline-enter pointer-events-none absolute left-1/2 top-[266px] z-10 w-[584px] -translate-x-1/2 select-none"
+              className="pointer-events-none absolute left-1/2 top-[266px] z-10 w-[584px] -translate-x-1/2 select-none im8-headline-enter"
               draggable="false"
             />
             <svg
@@ -583,20 +569,20 @@ const App = () => {
               <img
                 src={hand}
                 alt="Hand scratch guide"
-                className="im8-hand-guide pointer-events-none absolute left-[530px] top-[810px] z-30 w-[150px] select-none"
+                className="pointer-events-none absolute left-[530px] top-[810px] z-30 w-[150px] select-none im8-hand-guide"
                 draggable="false"
               />
             )}
             <img
               src={platform}
               alt="White tiered pedestal"
-              className="im8-platform-enter pointer-events-none absolute left-1/2 top-[1404px] z-10 w-[1081px] -translate-x-1/2 select-none"
+              className="pointer-events-none absolute left-1/2 top-[1404px] z-10 w-[1081px] -translate-x-1/2 select-none im8-platform-enter"
               draggable="false"
             />
             <img
               src={product}
               alt="I·M·8 product collection"
-              className="im8-product-enter pointer-events-none absolute left-[558px] top-[948px] z-20 w-[811px] -translate-x-1/2 select-none"
+              className="pointer-events-none absolute left-[558px] top-[948px] z-20 w-[811px] -translate-x-1/2 select-none im8-product-enter"
               draggable="false"
             />
             <Cta />
