@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { openDestination } from "./cta";
 
-// Replace this inactive value with the supplied .html?endcard import when available.
-// Internal offer buttons must call parent.__mip.activateDestination().
+// Replace this inactive value with a supplied .html?endcard import when needed.
+// Review standalone compatibility and shared calendar consumers before wiring it.
 const endSceneHtml = null;
 
 const EndScene = ({ onReady }) => {

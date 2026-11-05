@@ -471,12 +471,48 @@ function compatibleEndCard(source) {
   return editsTo(source, edits);
 }
 
+// Explicit opt-in for a SIP that must also run as a standalone creative.
+// Only the exact validated project engine may be replaced; the marker is not
+// an exemption for arbitrary scripts, navigation, media, or tracking code.
+export function standaloneMraidRuntime(shell) {
+  const scripts = [...shell.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1].trim());
+  if (scripts.length < 2) fail('Standalone SIP runtime needs the project raw readiness and destination scripts');
+  for (const script of scripts.slice(0, 2)) inspectJs(script, 'standalone SIP runtime', value => checkNavigation(value, 'standalone SIP runtime'));
+  checkRawDestination(parseJs(scripts[1]), 'standalone SIP runtime', true);
+  return `${scripts[0]}\n${scripts[1]}\nwindow.__sipActivate = function () {\n  console.log("CTA clicked");\n  window.__mip.openDestination();\n};\nwindow.__sipReady = function (callback) { return window.__mip.ready(callback); };`;
+}
+
+async function prepareStandaloneSip(source, label, watch) {
+  const marked = [];
+  walk(parseHtml(source, { sourceCodeLocationInfo: true }), node => {
+    if (node.attrs?.some(attr => attr.name === 'data-mip-standalone-runtime')) marked.push(node);
+  });
+  if (!marked.length) return source;
+  const node = marked[0];
+  const location = node.sourceCodeLocation;
+  if (marked.length !== 1 || node.tagName !== 'script' || node.attrs.length !== 1 ||
+      node.attrs[0].value !== 'v1' || !location?.endTag) {
+    fail(`${label}: expected one inline script with only data-mip-standalone-runtime="v1"`);
+  }
+  const shellFile = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../index.html');
+  watch(shellFile);
+  const expected = standaloneMraidRuntime(await fs.readFile(shellFile, 'utf8'));
+  const normalize = value => value.replaceAll('\r\n', '\n').trim();
+  const runtime = source.slice(location.startTag.endOffset, location.endTag.startOffset);
+  if (normalize(runtime) !== normalize(expected)) {
+    fail(`${label}: standalone SIP runtime differs from the approved project engine; review and synchronize it before embedding. Arbitrary marked code is never discarded.`);
+  }
+  const delegation = `<script>window.__sipActivate = function () { parent.__mip.activateDestination(); };\nwindow.__sipReady = function (callback) { return parent.__mip.ready(callback); };</script>`;
+  return editsTo(source, [{ start: location.startOffset, end: location.endOffset, value: delegation }]);
+}
+
 // Usage: import endCardHtml from './endcard.html?endcard';
 // Feed endCardHtml to the existing iframe's srcDoc. The generated module holds
 // only Base64 and decodes UTF-8 at runtime; the source document stays editable.
 export async function packageEndCard(file, watch = () => {}) {
   watch(file);
-  const { source, usesCalendar } = prepareEndCardCalendar(compatibleEndCard(await fs.readFile(file, 'utf8')), file);
+  const supplied = await prepareStandaloneSip(await fs.readFile(file, 'utf8'), file, watch);
+  const { source, usesCalendar } = prepareEndCardCalendar(compatibleEndCard(supplied), file);
   const edits = [];
   const pending = [];
   const local = value => {
