@@ -1,7 +1,110 @@
-﻿import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import useSound, { handleUnlockGesture, playSound, stopSound, waitForSoundCompletion } from "./hooks/useSound";
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, Fragment, useState } from "react";
+import { createGame, gameReducer, getHintPair } from "./game/memoryMatch";
+
+// Preserve pair timing and keep input locked through the entire return reveal.
+// Timer fallbacks also resolve when a host misses animation events.
+const PHASES = {
+  entering: { delay: 1550, action: "board-ready" },
+  preview: { delay: 1800, action: "hide-preview" },
+  "preview-closing": { delay: 420, action: "unlock" },
+  second: { delay: 0, action: "evaluate" },
+  checking: { delay: 420, action: "check" },
+  mismatch: { delay: 800, action: "close" },
+  closing: { delay: 420, action: "unlock" },
+  matched: { delay: 520, action: "unlock" },
+};
+
+function initializeGame() {
+  let previousLayout = null;
+  try { previousLayout = window.sessionStorage.getItem("mip5-previous-layout"); } catch { /* Storage is optional in ad hosts. */ }
+  return createGame(Math.random, previousLayout);
+}
+
+function useMemoryMatch(onComplete, cardSources) {
+  const [game, dispatch] = useReducer(gameReducer, undefined, initializeGame);
+  const completionSent = useRef(false);
+  const inputState = useRef(game);
+  useLayoutEffect(() => { inputState.current = game; }, [game]);
+
+  // Apply the same guard synchronously, before React commits a burst of taps.
+  const sendAction = useCallback((action) => {
+    const next = gameReducer(inputState.current, action);
+    if (next === inputState.current) return false;
+    inputState.current = next;
+    dispatch(action);
+    return true;
+  }, []);
+  const selectCard = useCallback((id) => sendAction({ type: "select", id }), [sendAction]);
+  const finishWin = useCallback(() => sendAction({ type: "complete" }), [sendAction]);
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem("mip5-previous-layout", game.cards.map(card => card.product).join(","));
+    } catch { /* Shuffling still works when storage is unavailable. */ }
+  }, [game.cards]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let scheduled = false;
+    const frames = [];
+    const ready = () => {
+      if (cancelled || scheduled) return;
+      scheduled = true;
+      clearTimeout(fallback);
+      frames.push(requestAnimationFrame(() => {
+        frames.push(requestAnimationFrame(() => {
+          if (!cancelled) sendAction({ type: "assets-ready" });
+        }));
+      }));
+    };
+    const fallback = setTimeout(ready, 1800);
+    const images = cardSources.map(src => {
+      const image = new Image();
+      image.src = src;
+      if (typeof image.decode === "function") return image.decode();
+      if (image.complete) return Promise.resolve();
+      return new Promise(resolve => { image.onload = resolve; image.onerror = resolve; });
+    });
+    Promise.allSettled(images).then(ready);
+    return () => { cancelled = true; clearTimeout(fallback); frames.forEach(cancelAnimationFrame); };
+  }, [cardSources, sendAction]);
+
+  useEffect(() => {
+    if (!["ready", "first"].includes(game.phase)) return;
+    const timer = window.setTimeout(
+      () => sendAction({ type: "hint", activity: game.activity }),
+      3000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [game.phase, game.activity, sendAction]);
+
+  useEffect(() => {
+    const next = PHASES[game.phase];
+    if (!next) return;
+    const timer = window.setTimeout(() => sendAction({ type: next.action }), next.delay);
+    return () => window.clearTimeout(timer);
+  }, [game.phase, sendAction]);
+
+  useEffect(() => {
+    if (game.phase !== "complete" || completionSent.current) return;
+    completionSent.current = true;
+    onComplete?.();
+    window.dispatchEvent(new CustomEvent("mip:gameplay-complete", { detail: { matches: 3 } }));
+  }, [game.phase, onComplete]);
+
+  return {
+    game,
+    startGame: () => sendAction({ type: "start" }),
+    finishEntrance: () => sendAction({ type: "board-ready" }),
+    hintPair: game.hintVisible ? getHintPair(game) : [],
+    selectCard,
+    finishWin,
+  };
+}
+
+
+import useSound, { bindSoundGestures, handleUnlockGesture, playSound, stopSound, waitForSoundCompletion  } from "./hooks/useSound";
 import useScaleUI from "./hooks/useScaleUI";
-import useMemoryMatch from "./hooks/useMemoryMatch";
 import { Cta } from "./components/cta";
 import EndScene from "./components/endscene";
 import background from "./assets/img/mainbg.webp";
@@ -16,12 +119,12 @@ import caramel from "./assets/img/item2.webp";
 import cocoa from "./assets/img/item3.webp";
 import hand from "./assets/img/hand.webp";
 import cta from "./assets/img/cta.webp";
-import throwingCards from "./assets/sounds/throwingcards.mp3";
-import cardPop from "./assets/sounds/pop1.mp3";
-import correctMatch from "./assets/sounds/correct1.mp3";
-import wrongMatch from "./assets/sounds/wrong3.mp3";
-import endSceneSound from "./assets/sounds/endscene3.wav";
-import gameWin from "./assets/sounds/gamewin5.mp3";
+import throwingCards from "./assets/sounds/throwingcards.mp3?inline";
+import cardPop from "./assets/sounds/pop1.mp3?inline";
+import correctMatch from "./assets/sounds/correct1.mp3?inline";
+import wrongMatch from "./assets/sounds/wrong3.mp3?inline";
+import endSceneSound from "./assets/sounds/endscene3.wav?inline";
+import gameWin from "./assets/sounds/gamewin5.mp3?inline";
 
 const PRODUCTS = [chocolate, caramel, cocoa];
 const CARD_SOURCES = [background, holidayBackground, logo, title, subtitle, instructions, itemCover, hand, cta, ...PRODUCTS];
@@ -41,16 +144,18 @@ const HAND_POSITIONS = [
 
 export default function App({ onComplete }) {
   const { appRef, wrapperRef } = useScaleUI(1080, 1920);
+  useEffect(() => bindSoundGestures(wrapperRef.current), [wrapperRef]);
   const { game, hintPair, selectCard, startGame, finishEntrance, finishWin } = useMemoryMatch(onComplete, CARD_SOURCES);
-  const throwingAudio = useSound(throwingCards);
-  const correctAudio = useSound(correctMatch);
-  const wrongAudio = useSound(wrongMatch);
-  const endSceneAudio = useSound(endSceneSound);
-  const winAudio = useSound(gameWin);
+  const throwingAudio = useSound(throwingCards, { backend: "media" });
+  const correctAudio = useSound(correctMatch, { backend: "media" });
+  const wrongAudio = useSound(wrongMatch, { backend: "media" });
+  const endSceneAudio = useSound(endSceneSound, { backend: "media" });
+  const winAudio = useSound(gameWin, { backend: "media" });
   const endSoundStarted = useRef(false);
   const feedbackSource = useRef(null);
   const dealSoundStarted = useRef(false);
   const dealSource = useRef(null);
+  const popPool = useSound(cardPop, { backend: "media", poolSize: 4 });
   const activePops = useRef(new Set());
   const [confetti] = useState(() => Array.from({ length: 320 }, (_, id) => {
     const angle = Math.random() * Math.PI * 2;
@@ -92,7 +197,7 @@ export default function App({ onComplete }) {
     if (!pool) return;
     stopSound(feedbackSource.current);
     if (game.phase === "won") {
-      activePops.current.forEach(audio => audio.pause());
+      activePops.current.forEach(audio => stopSound(audio));
       activePops.current.clear();
       stopSound(dealSource.current);
     }
@@ -103,7 +208,7 @@ export default function App({ onComplete }) {
   useEffect(() => {
     const pops = activePops.current;
     return () => {
-      pops.forEach(audio => audio.pause());
+      pops.forEach(audio => stopSound(audio));
       pops.clear();
       stopSound(dealSource.current);
       stopSound(feedbackSource.current);
@@ -113,12 +218,10 @@ export default function App({ onComplete }) {
   const playCardPop = () => {
     stopSound(feedbackSource.current);
     // Construct and play inside the accepted tap; blocked taps stay silent.
-    const audio = new Audio(cardPop);
+    const audio = playSound(popPool);
+    if (!audio) return;
     activePops.current.add(audio);
-    const release = () => activePops.current.delete(audio);
-    audio.addEventListener("ended", release, { once: true });
-    audio.addEventListener("error", release, { once: true });
-    audio.play()?.catch(release);
+    audio.finished.then(() => activePops.current.delete(audio));
   };
 
   const handleCardTap = (event, id) => {
@@ -130,7 +233,7 @@ export default function App({ onComplete }) {
     endSoundStarted.current = true;
     stopSound(feedbackSource.current);
     stopSound(dealSource.current);
-    activePops.current.forEach(audio => audio.pause());
+    activePops.current.forEach(audio => stopSound(audio));
     activePops.current.clear();
     playSound(endSceneAudio);
   }, [endSceneAudio]);

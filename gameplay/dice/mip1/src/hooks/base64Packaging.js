@@ -35,28 +35,6 @@ function calendarEdits(code, label) {
   const edits = [];
   let usesCalendar = false;
   const tree = parseJs(code, { sourceType: 'unambiguous', allowReturnOutsideFunction: true });
-  // A known empty SIP date template has no visible calendar content. Match both
-  // exact helper bodies in the same scope; custom renderers stay on the clock path.
-  const inactiveBodies = [];
-  walk(tree, scope => {
-    if (!["Program", "BlockStatement"].includes(scope.type)) return;
-    const statements = scope.body;
-    const emptyTokens = statements.some(statement => statement.type === 'VariableDeclaration' && statement.kind === 'const' &&
-      statement.declarations.some(item => item.id?.name === 'dateTokens' && item.init?.type === 'StringLiteral' && item.init.value === ''));
-    if (!emptyTokens) return;
-    const render = statements.find(item => item.type === 'FunctionDeclaration' && item.id?.name === 'renderSipDate');
-    const schedule = statements.find(item => item.type === 'FunctionDeclaration' && item.id?.name === 'scheduleSipDateMidnight');
-    if (!render || !schedule || render.params.length || schedule.params.length) return;
-    const renderCode = code.slice(render.body.start, render.body.end);
-    const scheduleCode = code.slice(schedule.body.start, schedule.body.end).replace(/\/\/[^\n]*/g, '');
-    const renderer = /^\{\s*var now = resolveSipEffectiveDate\(Date\.now\(\), dateRecurrence, dateOffsetDays\);\s*dateTextEl\.textContent = formatSipDate\(dateTokens, now, dateLocale\);\s*updateDynamicDatePosition\(\);\s*\}$/;
-    const scheduler = /^\{\s*var now = new Date\(\);\s*var next = new Date\(\s*now\.getFullYear\(\), now\.getMonth\(\), now\.getDate\(\) \+ 1,\s*0, 0, 1, 0\s*\);\s*setTimeout\(function \(\) \{\s*renderSipDate\(\);\s*scheduleSipDateMidnight\(\);\s*\}, next\.getTime\(\) - now\.getTime\(\)\);\s*\}$/;
-    if (!renderer.test(renderCode) || !scheduler.test(scheduleCode)) return;
-    for (const fn of [render, schedule]) {
-      inactiveBodies.push(fn.body);
-      edits.push({ start: fn.body.start, end: fn.body.end, value: '{}' });
-    }
-  });
   const freshDate = node => node?.type === 'NewExpression' && memberPath(node.callee) === 'Date' && node.arguments.length === 0;
   const timestamp = node => node?.type === 'CallExpression' && node.arguments.length === 0 &&
     (memberPath(node.callee) === 'Date.now' ||
@@ -66,7 +44,6 @@ function calendarEdits(code, label) {
     edits.push({ start: node.start, end: node.end, value });
   };
   walk(tree, node => {
-    if (inactiveBodies.some(body => node.start >= body.start && node.end <= body.end)) return;
     if (node.type === 'MemberExpression' && memberPath(node) === 'window.__mip.calendarClock') usesCalendar = true;
     if (node.type !== 'CallExpression') return;
     const method = property(node.callee);
@@ -120,14 +97,14 @@ function prepareEndCardCalendar(source, label) {
   return { source: editsTo(source, edits), usesCalendar };
 }
 
-function walk(node, visit) {
+function walk(node, visit, parent = null, field = null) {
   if (node === null || node === undefined) return;
-  visit(node);
+  visit(node, parent, field);
   if (typeof node !== 'object') return;
   for (const [key, value] of Object.entries(node)) {
     if (key === 'parentNode' || key === 'loc' || key === 'sourceCodeLocation') continue;
-    if (Array.isArray(value)) value.forEach(child => walk(child, visit));
-    else if (value && typeof value === 'object') walk(value, visit);
+    if (Array.isArray(value)) value.forEach(child => walk(child, visit, node, key));
+    else if (value && typeof value === 'object') walk(value, visit, node, key);
   }
 }
 
@@ -154,14 +131,125 @@ function checkNavigation(text, label) {
 }
 
 function property(node) {
-  return node?.computed ? node.property?.value : node?.property?.name;
+  return node?.computed ? staticString(node.property) : node?.property?.name;
 }
 
-function inspectJs(code, label, inspectString, inlineHandler = false, sourceType = 'unambiguous') {
+function staticString(node) {
+  if (node?.type === 'StringLiteral') return node.value;
+  if (node?.type === 'BinaryExpression' && node.operator === '+') {
+    const left = staticString(node.left), right = staticString(node.right);
+    if (left !== undefined && right !== undefined) return left + right;
+  }
+}
+
+function bridgeValue(node) {
+  if (['MemberExpression', 'OptionalMemberExpression'].includes(node?.type) && property(node) === 'mraid') return true;
+  if (['mraid', 'window.mraid', 'self.mraid', 'globalThis.mraid', 'parent.mraid', 'window.parent.mraid'].includes(memberPath(node))) return true;
+  if (node?.type === 'LogicalExpression') return bridgeValue(node.left) || bridgeValue(node.right);
+  if (node?.type === 'ConditionalExpression') return bridgeValue(node.consequent) || bridgeValue(node.alternate);
+  if (node?.type === 'SequenceExpression') return bridgeValue(node.expressions.at(-1));
+  if (node?.type === 'AssignmentExpression') return bridgeValue(node.right);
+  return false;
+}
+
+function inspectTracking(tree, label, endCard) {
+  const navigationBodies = [];
+  walk(tree, node => {
+    if (node.type === 'AssignmentExpression' && memberPath(node.left) === 'window.__mip.openDestination') navigationBodies.push(node.right);
+  });
+  walk(tree, (node, parent, field) => {
+    const member = ['MemberExpression', 'OptionalMemberExpression'].includes(node.type);
+    if (node.type === 'Identifier' && ['clickTag', 'mraid'].includes(node.name) &&
+        !(field === 'property' && ['MemberExpression', 'OptionalMemberExpression'].includes(parent?.type) && !parent.computed)) {
+      fail(`${label}: reserved bare/local tracking or bridge name ${node.name}; use the live window property`);
+    }
+    if (member && property(node) === 'clickTag') {
+      const writing = (parent?.type === 'AssignmentExpression' && field === 'left') ||
+        parent?.type === 'UpdateExpression' || (parent?.type === 'UnaryExpression' && parent.operator === 'delete');
+      if (writing || endCard || memberPath(node.object) !== 'window') {
+        fail(`${label}: only the parent may read the injected window.clickTag; assignments and child copies are forbidden`);
+      }
+    }
+    if (node.type === 'ObjectProperty' && ['clickTag', 'mraid'].includes(node.key?.name ?? staticString(node.key))) {
+      fail(`${label}: reserved tracking/bridge property creation or destructuring is forbidden`);
+    }
+    if (member && property(node) === 'open' && bridgeValue(node.object)) {
+      if (endCard || !navigationBodies.some(body => node.start >= body.start && node.end <= body.end)) {
+        fail(`${label}: MRAID navigation belongs only to the parent's approved raw handler; delegate through the shared activation function`);
+      }
+    }
+    if ((node.type === 'VariableDeclarator' && bridgeValue(node.init)) ||
+        (node.type === 'AssignmentExpression' && bridgeValue(node.right)) ||
+        (node.type === 'AssignmentPattern' && bridgeValue(node.right)) ||
+        (node.type === 'ObjectProperty' && bridgeValue(node.value)) ||
+        (node.type === 'ReturnStatement' && bridgeValue(node.argument))) {
+      fail(`${label}: cached MRAID bridge alias; read window.mraid live and bind lifecycle removal methods to their registering instance`);
+    }
+    if (node.type === 'VariableDeclarator' && node.id?.type === 'ObjectPattern' &&
+        node.id.properties.some(item => (item.key?.name ?? staticString(item.key)) === 'mraid')) {
+      fail(`${label}: destructured MRAID bridge alias is forbidden`);
+    }
+    if (member && property(node) === 'mraid' &&
+        ((parent?.type === 'AssignmentExpression' && field === 'left') || parent?.type === 'UpdateExpression')) {
+      fail(`${label}: do not assign or forward the host bridge`);
+    }
+    if (!['CallExpression', 'OptionalCallExpression'].includes(node.type)) return;
+    const callee = memberPath(node.callee);
+    if (endCard && /(?:^|\.)__mip\.activateDestination$/.test(callee) &&
+        (!['parent.__mip.activateDestination', 'window.parent.__mip.activateDestination'].includes(callee) || node.arguments.length)) {
+      fail(`${label}: delegate with parent.__mip.activateDestination() and no destination arguments`);
+    }
+    if (['Object.defineProperty', 'Reflect.defineProperty', 'Reflect.set', 'Reflect.deleteProperty'].includes(callee) &&
+        ['clickTag', 'mraid'].includes(staticString(node.arguments[1]))) {
+      fail(`${label}: reflective tracking/bridge writes are forbidden`);
+    }
+    if (endCard && (/(?:^|\.)mraid\.open$/.test(callee) || /(?:^|\.)__mip\.openDestination$/.test(callee))) {
+      fail(`${label}: internal offer buttons must delegate to parent.__mip.activateDestination() without local logging or destination handling`);
+    }
+    if (endCard && callee === 'console.log' && staticString(node.arguments[0]) === 'CTA clicked') {
+      fail(`${label}: CTA logging belongs to the parent's shared activation handler`);
+    }
+  });
+}
+
+// Compare parsed executable code, not comments that merely contain guard text.
+const rawDestination = `function handleMraidOpen() {
+  var injectedUrl = window.clickTag;
+  var destinationUrl = typeof injectedUrl === "string" ? injectedUrl.trim() : "";
+  try {
+    if (window.mraid && typeof window.mraid.open === "function" &&
+        typeof window.isMraidUsable === "function" && window.isMraidUsable(window.mraid)) {
+      window.mraid.open(destinationUrl);
+    }
+  } catch (error) { console.error("mraid.open failed", error); }
+}`;
+function structural(node) {
+  if (Array.isArray(node)) return node.map(structural);
+  if (!node || typeof node !== 'object') return node;
+  return Object.fromEntries(Object.entries(node)
+    .filter(([key]) => !['start', 'end', 'loc', 'extra', 'leadingComments', 'trailingComments', 'innerComments'].includes(key))
+    .map(([key, value]) => [key, structural(value)]));
+}
+const expectedDestination = JSON.stringify(structural(parseJs(`(${rawDestination})`).program.body[0].expression));
+function checkRawDestination(tree, label, required = false) {
+  let count = 0;
+  walk(tree, node => {
+    if (node.type !== 'AssignmentExpression' || memberPath(node.left) !== 'window.__mip.openDestination') return;
+    count++;
+    if (JSON.stringify(structural(node.right)) !== expectedDestination) {
+      fail(`${label}: raw destination handler must use the approved live window.mraid guards, injected tag normalization, explicit argument and try/catch`);
+    }
+  });
+  if (required && count !== 1) fail(`${label}: one executable raw live MRAID destination handler is required`);
+}
+
+function inspectJs(code, label, inspectString, inlineHandler = false, sourceType = 'unambiguous', endCard = false) {
   checkNavigation(code, label);
   let tree;
   try { tree = parseJs(code, { sourceType, plugins: ['jsx'], allowReturnOutsideFunction: inlineHandler }); }
   catch (error) { fail(`${label}: cannot validate JavaScript: ${error.message}`); }
+  inspectTracking(tree, label, endCard);
+  checkRawDestination(tree, label);
   // Navigation destinations are not media requests. Preserve supplied URL
   // literals in MRAID arguments and destination variables.
   const destinations = new WeakSet();
@@ -171,36 +259,7 @@ function inspectJs(code, label, inspectString, inlineHandler = false, sourceType
     if (node?.type === 'LogicalExpression') { markDestination(node.left); markDestination(node.right); }
     if (node?.type === 'ConditionalExpression') { markDestination(node.consequent); markDestination(node.alternate); }
   };
-  const allowedTrackingKeys = new WeakSet();
   walk(tree, node => {
-    if (['MemberExpression', 'OptionalMemberExpression'].includes(node.type) && property(node) === 'clickTag') {
-      if (node.object?.type !== 'Identifier' || node.object.name !== 'window') {
-        fail(`${label}: tracking must read only window.clickTag; child offers must call the parent destination handler`);
-      }
-      if (!node.computed) allowedTrackingKeys.add(node.property);
-    }
-  });
-  const isBridgeReference = node => {
-    if (memberPath(node) === 'window.mraid') return true;
-    if (node?.type === 'LogicalExpression') return isBridgeReference(node.left) || isBridgeReference(node.right);
-    if (node?.type === 'ConditionalExpression') return isBridgeReference(node.consequent) || isBridgeReference(node.alternate);
-    return false;
-  };
-  walk(tree, node => {
-    if (node.type === 'Identifier' && node.name === 'clickTag' && !allowedTrackingKeys.has(node)) {
-      fail(`${label}: bare/local clickTag is reserved; read window.clickTag into a neutral local name`);
-    }
-    if ((['AssignmentExpression', 'UpdateExpression'].includes(node.type) &&
-          property(node.left ?? node.argument) === 'clickTag') ||
-        (node.type === 'UnaryExpression' && node.operator === 'delete' && property(node.argument) === 'clickTag')) {
-      fail(`${label}: window.clickTag is read-only, including decoded end cards`);
-    }
-    if ((node.type === 'VariableDeclarator' && isBridgeReference(node.init)) ||
-        (node.type === 'AssignmentExpression' && isBridgeReference(node.right)) ||
-        (node.type === 'VariableDeclarator' && memberPath(node.init) === 'window' &&
-          node.id?.type === 'ObjectPattern' && node.id.properties.some(item => (item.key?.name ?? item.key?.value) === 'mraid'))) {
-      fail(`${label}: cached MRAID bridge; read window.mraid live and bind listener cleanup to its registering owner`);
-    }
     if (node.type === 'AssignmentExpression' && /^(?:(?:window|self|globalThis)\.)?(?:clickTag|clickTarget|destinationUrl)$/.test(memberPath(node.left))) markDestination(node.right);
     if (node.type === 'VariableDeclarator' && /^(?:clickTag|clickTarget|destinationUrl)$/.test(node.id?.name)) markDestination(node.init);
     if (node.type === 'StringLiteral') inspectString(node.value, node, destinations.has(node));
@@ -236,7 +295,7 @@ function inspectJs(code, label, inspectString, inlineHandler = false, sourceType
 
 function memberPath(node) {
   if (node?.type === 'Identifier') return node.name;
-  if (node?.type === 'MemberExpression') return `${memberPath(node.object)}.${property(node)}`;
+  if (['MemberExpression', 'OptionalMemberExpression'].includes(node?.type)) return `${memberPath(node.object)}.${property(node)}`;
   return '';
 }
 
@@ -310,7 +369,7 @@ export function validateHtml(html, { label = 'creative', main = false, documents
       const code = node.childNodes?.map(child => child.value || '').join('') || '';
       if (!attrs.type || /^(?:module|(?:text|application)\/javascript)$/.test(attrs.type)) {
         if (code.trim()) {
-          inspectJs(code, label, (value, _node, destination) => inspectValue(value, label, documents, depth, destination), false, attrs.type === 'module' ? 'module' : 'script');
+          inspectJs(code, label, (value, _node, destination) => inspectValue(value, label, documents, depth, destination), false, attrs.type === 'module' ? 'module' : 'script', !main);
           if (calendarEdits(code, label).edits.length) fail(`${label}: calendar content bypasses the shared preview clock; use window.__mip.calendarClock.now() (or import the shared singleton in gameplay).`);
         }
       } else if (code.trim()) {
@@ -337,7 +396,7 @@ export function validateHtml(html, { label = 'creative', main = false, documents
     for (const [name, value] of Object.entries(attrs)) {
       if (name === 'srcdoc') fail(`${label}: raw embedded HTML srcdoc; decode a build-time end-card import at runtime`);
       if (name === 'style') validateCss(value, label, documents, depth);
-      if (name.startsWith('on')) inspectJs(value, label, (item, _node, destination) => inspectValue(item, label, documents, depth, destination), true, 'script');
+      if (name.startsWith('on')) inspectJs(value, label, (item, _node, destination) => inspectValue(item, label, documents, depth, destination), true, 'script', !main);
       if (['src', 'href', 'xlink:href', 'poster', 'data', 'action', 'formaction', 'background'].includes(name)) {
         if (node.tagName === 'script' && name === 'src' && value === 'mraid.js') continue;
         if (value.startsWith('#')) continue;
@@ -358,6 +417,9 @@ export function validateHtml(html, { label = 'creative', main = false, documents
   });
   if (main) {
     if (scripts[0]?.attrs.find(attr => attr.name === 'src')?.value !== 'mraid.js') fail(`${label}: mraid.js must remain the first script`);
+    const raw = scripts[2];
+    if (!raw || raw.attrs.some(attr => ['src', 'type'].includes(attr.name))) fail(`${label}: keep destination handling in the second raw inline script`);
+    checkRawDestination(parseJs(raw.childNodes.map(child => child.value || '').join('')), label, true);
     for (const required of ['window.__mip.openDestination = function handleMraidOpen()', 'window.isMraidUsable(window.mraid)', 'window.mraid.open(destinationUrl)', 'window.mraid.getState() === "loading"']) {
       if (!html.includes(required)) fail(`${label}: required raw MRAID implementation missing: ${required}`);
     }
@@ -395,23 +457,8 @@ function base64SvgUrls(text) {
 // Compatibility changes apply only to imported end cards, before inspection.
 // Edit source ranges rather than reserializing the document or replacing text
 // inside JavaScript strings/comments. Never write these changes back to disk.
-function compatibleEndCard(source, label) {
+function compatibleEndCard(source) {
   const edits = [];
-  const correctCalls = (code, inlineHandler = false) => {
-    let tree;
-    try {
-      tree = parseJs(code, { sourceType: 'unambiguous', allowReturnOutsideFunction: inlineHandler });
-    } catch (error) {
-      fail(`${label}: cannot parse end-card JavaScript: ${error.message}`);
-    }
-    const calls = [];
-    walk(tree, node => {
-      if (node.type === 'CallExpression' && /(?:^|\.)mraid\.open$/.test(memberPath(node.callee)) && node.arguments.length === 0) {
-        calls.push({ start: node.end - 1, end: node.end - 1, value: '""' });
-      }
-    });
-    return editsTo(code, calls);
-  };
   walk(parseHtml(source, { sourceCodeLocationInfo: true }), node => {
     if (!node.tagName) return;
     const location = node.sourceCodeLocation;
@@ -420,28 +467,43 @@ function compatibleEndCard(source, label) {
       const range = location?.attrs?.src;
       if (emptySrc && range) edits.push({ start: range.startOffset, end: range.endOffset, value: '' });
     }
-    if (node.tagName === 'script' && location?.endTag) {
-      const attrs = Object.fromEntries(node.attrs.map(attr => [attr.name, attr.value]));
-      if (!Object.hasOwn(attrs, 'src') && (!attrs.type || /^(?:module|(?:text|application)\/javascript)$/.test(attrs.type))) {
-        const start = location.startTag.endOffset;
-        const end = location.endTag.startOffset;
-        const code = source.slice(start, end);
-        const corrected = correctCalls(code);
-        if (corrected !== code) edits.push({ start, end, value: corrected });
-      }
-    }
-    for (const attr of node.attrs) {
-      if (!attr.name.startsWith('on')) continue;
-      const range = location?.attrs?.[attr.name];
-      if (!range) continue;
-      const corrected = correctCalls(attr.value, true);
-      if (corrected !== attr.value) {
-        const encoded = corrected.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
-        edits.push({ start: range.startOffset, end: range.endOffset, value: `${attr.name}="${encoded}"` });
-      }
-    }
   });
   return editsTo(source, edits);
+}
+
+// Explicit opt-in for a SIP that must also run as a standalone creative.
+// Only the exact validated project engine may be replaced; the marker is not
+// an exemption for arbitrary scripts, navigation, media, or tracking code.
+export function standaloneMraidRuntime(shell) {
+  const scripts = [...shell.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1].trim());
+  if (scripts.length < 2) fail('Standalone SIP runtime needs the project raw readiness and destination scripts');
+  for (const script of scripts.slice(0, 2)) inspectJs(script, 'standalone SIP runtime', value => checkNavigation(value, 'standalone SIP runtime'));
+  checkRawDestination(parseJs(scripts[1]), 'standalone SIP runtime', true);
+  return `${scripts[0]}\n${scripts[1]}\nwindow.__sipActivate = function () {\n  console.log("CTA clicked");\n  window.__mip.openDestination();\n};\nwindow.__sipReady = function (callback) { return window.__mip.ready(callback); };`;
+}
+
+async function prepareStandaloneSip(source, label, watch) {
+  const marked = [];
+  walk(parseHtml(source, { sourceCodeLocationInfo: true }), node => {
+    if (node.attrs?.some(attr => attr.name === 'data-mip-standalone-runtime')) marked.push(node);
+  });
+  if (!marked.length) return source;
+  const node = marked[0];
+  const location = node.sourceCodeLocation;
+  if (marked.length !== 1 || node.tagName !== 'script' || node.attrs.length !== 1 ||
+      node.attrs[0].value !== 'v1' || !location?.endTag) {
+    fail(`${label}: expected one inline script with only data-mip-standalone-runtime="v1"`);
+  }
+  const shellFile = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../index.html');
+  watch(shellFile);
+  const expected = standaloneMraidRuntime(await fs.readFile(shellFile, 'utf8'));
+  const normalize = value => value.replaceAll('\r\n', '\n').trim();
+  const runtime = source.slice(location.startTag.endOffset, location.endTag.startOffset);
+  if (normalize(runtime) !== normalize(expected)) {
+    fail(`${label}: standalone SIP runtime differs from the approved project engine; review and synchronize it before embedding. Arbitrary marked code is never discarded.`);
+  }
+  const delegation = `<script>window.__sipActivate = function () { parent.__mip.activateDestination(); };\nwindow.__sipReady = function (callback) { return parent.__mip.ready(callback); };</script>`;
+  return editsTo(source, [{ start: location.startOffset, end: location.endOffset, value: delegation }]);
 }
 
 // Usage: import endCardHtml from './endcard.html?endcard';
@@ -449,7 +511,8 @@ function compatibleEndCard(source, label) {
 // only Base64 and decodes UTF-8 at runtime; the source document stays editable.
 export async function packageEndCard(file, watch = () => {}) {
   watch(file);
-  const { source, usesCalendar } = prepareEndCardCalendar(compatibleEndCard(await fs.readFile(file, 'utf8'), file), file);
+  const supplied = await prepareStandaloneSip(await fs.readFile(file, 'utf8'), file, watch);
+  const { source, usesCalendar } = prepareEndCardCalendar(compatibleEndCard(supplied), file);
   const edits = [];
   const pending = [];
   const local = value => {
@@ -470,7 +533,7 @@ export async function packageEndCard(file, watch = () => {}) {
             if (literal.type !== 'StringLiteral') fail(`${file}: use a static string for end-card media references`);
             pending.push(inlineUrl(value).then(url => edits.push({ start: location.startTag.endOffset + literal.start, end: location.startTag.endOffset + literal.end, value: JSON.stringify(url) })));
           }
-        });
+        }, false, 'unambiguous', true);
       }
     }
     for (const attr of node.attrs || []) {
@@ -498,6 +561,21 @@ export async function packageEndCard(file, watch = () => {}) {
   return { html, url, usesCalendar };
 }
 
+
+// Inspect inactive source too: removing an import must not hide legacy tracking.
+async function inspectSourceFiles(directory) {
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) await inspectSourceFiles(file);
+    else if (/\.[cm]?[jt]sx?$/.test(entry.name) && entry.name !== 'base64Packaging.js') {
+      inspectJs(await fs.readFile(file, 'utf8'), file, value => {
+        checkNavigation(value, file);
+        if (htmlDocument.test(value)) fail(file + ': raw embedded HTML document; use .html?endcard');
+      });
+    }
+  }
+}
+
 export function base64Packaging() {
   const documents = new Map();
   let config;
@@ -510,24 +588,10 @@ export function base64Packaging() {
       async buildStart() {
         documents.clear();
         const shell = await fs.readFile(path.join(config.root, 'index.html'), 'utf8');
-        if (config.command === 'build') {
-          if (!/<title>\s*[^<\s][^<]*<\/title>/i.test(shell)) fail('A nonblank approved title is required before building.');
-          const scan = async directory => {
-            for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
-              const file = path.join(directory, entry.name);
-              if (entry.isDirectory()) await scan(file);
-              else if (/\.(?:jsx?|html|css)$/.test(entry.name) && entry.name !== 'base64Packaging.js') {
-                const text = await fs.readFile(file, 'utf8');
-                checkNavigation(text, file);
-                if (/data:\s*,|data:[^"'\s<>]*;base64,(?=["'\s<>]|$)/i.test(text)) fail(file + ': empty data asset');
-              }
-            }
-          };
-          checkNavigation(shell, 'index.html');
-          if (/data:\s*,/i.test(shell)) fail('index.html: empty data asset');
-          await scan(path.join(config.root, 'src'));
-        }
         rawScripts = [...shell.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
+        for (const script of rawScripts) inspectJs(script, 'index.html', value => checkNavigation(value, 'index.html'));
+        checkRawDestination(parseJs(rawScripts[1] || ''), 'index.html', true);
+        await inspectSourceFiles(path.join(config.root, 'src'));
       },
       async load(id) {
         const [file, query = ''] = id.split('?');
@@ -541,7 +605,7 @@ export function base64Packaging() {
           }
           const { html, url, usesCalendar } = await packageEndCard(file, dependency => this.addWatchFile(dependency));
           documents.set(url, html);
-          const calendar = usesCalendar ? `import {calendarClock,subscribeCalendarClock} from ${JSON.stringify(calendarModule)};window.__mip=window.__mip||{};window.__mip.calendarClock=calendarClock;window.__mip.subscribeCalendarClock=subscribeCalendarClock;` : '';
+          const calendar = usesCalendar ? `import {calendarClock} from ${JSON.stringify(calendarModule)};window.__mip=window.__mip||{};window.__mip.calendarClock=calendarClock;` : '';
           return `${calendar}const packaged=${JSON.stringify(url)};export default new TextDecoder().decode(Uint8Array.from(atob(packaged.slice(packaged.indexOf(',')+1)),c=>c.charCodeAt(0)));`;
         }
         // Vite may otherwise percent-encode SVG imports; force genuine Base64.
@@ -550,7 +614,7 @@ export function base64Packaging() {
         }
       },
       transform(code, id) {
-        if (config.command !== 'build' || id.startsWith('\0') || id.includes('node_modules') || !/\.[cm]?[jt]sx?(?:\?|$)/.test(id)) return;
+        if (id.startsWith('\0') || id.includes('node_modules') || !/\.[cm]?[jt]sx?(?:\?|$)/.test(id)) return;
         inspectJs(code, id, value => {
           // Imports are resolved by Vite; final output checks their URLs.
           checkNavigation(value, id);

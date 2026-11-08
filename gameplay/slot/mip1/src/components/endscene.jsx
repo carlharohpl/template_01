@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { openDestination } from "./cta";
-import defaultHtml from "../Assets/endscene/endscenedefault.html?endcard";
-import dhHtml from "../Assets/endscene/endscene_dh.html?endcard";
+import defaultHtml from "../assets/endscene/endscenedefault.html?endcard";
+import dhHtml from "../assets/endscene/endscene_dh.html?endcard";
 
-const bridgeScript = `
-<script>
-  try {
-    window.mraid = parent.mraid || window.mraid;
-    window.clickTag = parent.clickTag || window.clickTag;
-  } catch (error) {}
-</script>`;
+
 const documents = {
-  default: defaultHtml.replace("</head>", bridgeScript + "</head>"),
-  dh: dhHtml.replace("</head>", bridgeScript + "</head>"),
+  default: defaultHtml,
+  dh: dhHtml,
 };
 
 export default function EndScene({ variant = "default", onReady }) {
@@ -80,7 +74,7 @@ export default function EndScene({ variant = "default", onReady }) {
         tabIndex={-1}
         onLoad={handleLoad}
       />
-      <button
+      <button data-sfx-exclude=""
         ref={buttonRef}
         type="button"
         aria-label="Open offer"

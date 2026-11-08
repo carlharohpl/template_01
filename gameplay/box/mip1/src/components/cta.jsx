@@ -18,7 +18,7 @@ export const Cta = ({ disabled = false, entrance = true }) => (
     className={`pointer-events-none absolute left-1/2 top-[1667px] z-50 w-[732px] -translate-x-1/2 select-none animate-scale-pulse ${entrance ? "cta-enter" : ""}`}
     draggable="false"
   />
-  <button
+  <button data-sfx-exclude=""
     type="button"
     aria-label="Claim Your Halloween Deal"
     className="pointer-events-auto absolute left-1/2 top-[1653.5px] z-50 h-[162px] w-[878.4px] -translate-x-1/2 cursor-pointer cta-hit"

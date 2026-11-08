@@ -159,13 +159,12 @@ export function subscribeCalendarClock(clock, onChange) {
   window.addEventListener("focus", refresh);
   window.addEventListener("pageshow", refresh);
   document.addEventListener("visibilitychange", onVisibility);
-  let removeViewableListener = null;
+  let removeViewable = null;
   try {
     if (window.isMraidUsable?.(window.mraid) && typeof window.mraid?.addEventListener === "function" &&
       typeof window.mraid?.removeEventListener === "function") {
-      const removeListener = window.mraid.removeEventListener.bind(window.mraid);
+      removeViewable = window.mraid.removeEventListener.bind(window.mraid, "viewableChange", onViewable);
       window.mraid.addEventListener("viewableChange", onViewable);
-      removeViewableListener = () => removeListener("viewableChange", onViewable);
     }
   } catch {
     // Browser visibility and local-midnight refresh remain available.
@@ -178,8 +177,8 @@ export function subscribeCalendarClock(clock, onChange) {
     window.removeEventListener("focus", refresh);
     window.removeEventListener("pageshow", refresh);
     document.removeEventListener("visibilitychange", onVisibility);
-    if (removeViewableListener) {
-      try { removeViewableListener(); } catch { /* Host may have disposed its bridge. */ }
+    if (removeViewable) {
+      try { removeViewable(); } catch { /* Host may have disposed its bridge. */ }
     }
   };
 }

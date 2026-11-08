@@ -1,0 +1,53 @@
+@font-face {
+  font-family: Yellix;
+  src: url('./assets/images/fonts/yellix-semibold-latin.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; touch-action: none; }
+[hidden] { display: none !important; }
+#app, #game, .game-ui, .end-card { position: fixed; inset: 0; overflow: hidden; }
+#app { background-color: #c0e5f6; background-size: cover; background-position: center; }
+#game { z-index: 1; }
+#game canvas { display: block; width: 100%; height: 100%; }
+.game-ui { z-index: 3; pointer-events: none; }
+.positioned { position: absolute; display: block; margin: 0; }
+img { user-select: none; -webkit-user-select: none; -webkit-user-drag: none; }
+.game-score { box-sizing: border-box; width: max-content !important; transform: translate(-50%, -50%); background: #000; color: #fff; white-space: nowrap; font: 600 1em/1 Yellix, sans-serif; text-align: center; }
+.shop-image { pointer-events: none; }
+.shop-button { padding: 0; border: 0; background: transparent; cursor: pointer; pointer-events: auto; -webkit-tap-highlight-color: transparent; }
+.shop-button:focus-visible { outline: medium solid #fff; outline-offset: 0; }
+.animate-scale-pulse { animation: scale-pulse 1.6s ease-in-out infinite; }
+@keyframes scale-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+.end-scene-fade { opacity: 0; transition: opacity 500ms ease-out; }
+.end-scene-fade.is-visible { opacity: 1; }
+.end-card { z-index: 20; pointer-events: none; background-color: #c0e5f6; background-size: cover; background-position: center; }
+.end-card.is-visible { pointer-events: auto; }
+.end-card:not(.is-visible) .animate-scale-pulse { animation-play-state: paused; }
+.end-backdrop-pipe { position: absolute; left: 50%; top: -10%; height: 120%; transform: translateX(-50%); }
+.end-wash { position: absolute; inset: 0; background: rgba(255,255,255,.87); }
+.end-content { position: absolute; inset: 0; z-index: 2; }
+.offer-entrance { position: absolute; inset: 0; pointer-events: none; }
+.offer-entrance > img { animation: offer-title-enter 650ms cubic-bezier(.22, 1, .36, 1) both paused; }
+.offer-entrance > .offer-tag-left, .offer-entrance > .offer-tag-1 { animation-name: offer-left-enter; animation-delay: 100ms; }
+.offer-entrance > .offer-tag-right, .offer-entrance > .offer-tag-3 { animation-name: offer-right-enter; animation-delay: 100ms; }
+.offer-entrance > .offer-tag-2 { animation-name: offer-product-enter; animation-delay: 100ms; }
+.offer-entrance > [class*="offer-badge-"] { animation-name: offer-badge-enter; animation-duration: 450ms; animation-delay: 200ms; }
+.offer-entrance.is-entering > img { animation-play-state: running; }
+@keyframes offer-title-enter { from { opacity: 0; transform: translateY(calc(-1 * var(--offer-enter-distance))) scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes offer-left-enter { from { opacity: 0; transform: translateX(calc(-1 * var(--offer-enter-distance))) rotate(-8deg); } to { opacity: 1; transform: none; } }
+@keyframes offer-right-enter { from { opacity: 0; transform: translateX(var(--offer-enter-distance)) rotate(8deg); } to { opacity: 1; transform: none; } }
+@keyframes offer-product-enter { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: none; } }
+@keyframes offer-badge-enter { from { opacity: 0; transform: translateY(var(--offer-enter-distance)); } to { opacity: 1; transform: none; } }
+.end-confetti { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+.end-confetti div { position: absolute; background: #e6be77; opacity: .9; animation: gold-fall var(--duration) linear infinite; animation-delay: var(--delay); }
+.end-card:not(.is-visible) .end-confetti div { animation-play-state: paused; }
+@keyframes gold-fall { from { transform: translate(0, -12vh) rotate(0deg); } to { transform: translate(var(--x), 112vh) rotate(var(--rotate)); } }
+.host-paused *, .host-paused *::before, .host-paused *::after { animation-play-state: paused !important; }
+.sip-end-scene { position: fixed; inset: 0; z-index: 25; pointer-events: none; }
+.sip-end-scene.is-visible { pointer-events: auto; }
+.sip-end-scene iframe, .sip-end-scene button { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; padding: 0; }
+.sip-end-scene button { background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+#app, .end-card { background-image: url('./assets/images/newassets/cloud-background.webp'); }

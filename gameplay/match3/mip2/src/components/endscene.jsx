@@ -2,15 +2,8 @@
 import endSceneHtml from "../assets/endscene/endscene.html?endcard";
 import { openDestination } from "./cta";
 
-// Preserve the supplied document; only forward the host's ad-network globals.
-const bridgeScript = `
-<script>
-  try {
-    window.mraid = parent.mraid || window.mraid;
-    window.clickTag = parent.clickTag || window.clickTag;
-  } catch (error) {}
-</script>`;
-const bridgedHtml = endSceneHtml.replace("</head>", `${bridgeScript}</head>`);
+
+const bridgedHtml = endSceneHtml;
 
 export default function EndScene({ onReady }) {
   const [visible, setVisible] = useState(false);
@@ -69,7 +62,7 @@ export default function EndScene({ onReady }) {
         tabIndex={-1}
         onLoad={scheduleReveal}
       />
-      <button
+      <button data-sfx-exclude=""
         type="button"
         data-cta=""
         aria-label="Open offer"

@@ -1,3 +1,4 @@
+import { parse as parseHtml } from "parse5";
 import { base64Packaging } from "./src/hooks/base64Packaging.js";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -27,6 +28,27 @@ function localMraidFallback() {
 
   return {
     name: "local-mraid-fallback",
+    enforce: "post",
+    transformIndexHtml: {
+      order: "post",
+      handler(html) {
+        html = html.replace(/^\uFEFF/, "");
+        // Vite makes this root-relative on explicit HTML/alias routes. Preserve
+        // the host's exact bridge declaration without changing HMR or scripts.
+        const document = parseHtml(html, { sourceCodeLocationInfo: true });
+        const head = document.childNodes.find(node => node.tagName === "html")
+          ?.childNodes.find(node => node.tagName === "head");
+        const edits = (head?.childNodes || [])
+          .filter(node => node.tagName === "script" && node.attrs.some(attr => attr.name === "src" && attr.value === "/mraid.js"))
+          .map(node => node.sourceCodeLocation?.attrs?.src)
+          .filter(Boolean);
+        for (const location of edits.sort((a, b) => b.startOffset - a.startOffset)) {
+          html = html.slice(0, location.startOffset) + 'src="mraid.js"' + html.slice(location.endOffset);
+        }
+        return html;
+      },
+    },
+
     apply: "serve",
     configureServer,
     configurePreviewServer: configureServer,

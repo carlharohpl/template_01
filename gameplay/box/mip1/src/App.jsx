@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import useScaleUI from "./hooks/useScaleUI";
-import useSound, { handleUnlockGesture, playSound, stopSound } from "./hooks/useSound";
+import useSound, { bindSoundGestures, handleUnlockGesture, playSound, stopSound, waitForSoundCompletion  } from "./hooks/useSound";
 import { Cta } from "./components/cta";
 import EndScene from "./components/endscene";
 import logo from "./assets/img/logo.webp";
@@ -16,9 +16,9 @@ import owl from "./assets/img/owl1.webp";
 import hand from "./assets/img/hand.webp";
 import cta from "./assets/img/cta.webp";
 import background from "./assets/img/bg.webp";
-import selectionSound from "./assets/sounds/click.mp3";
-import tapSound from "./assets/sounds/pop1.mp3";
-import rewardSound from "./assets/sounds/endscene3.wav";
+import selectionSound from "./assets/sounds/click.mp3?inline";
+import tapSound from "./assets/sounds/pop1.mp3?inline";
+import rewardSound from "./assets/sounds/endscene3.wav?inline";
 
 const assets = [background, logo, subtitle1, subtitle2, subtitle3, box1, box2, fairy1, fairy3, fairy4, owl, hand, cta];
 const initialGame = { phase: "preparing", selected: null, taps: 0, complete: false, guidedGift: 0 };
@@ -34,10 +34,13 @@ const nextPhase = {
 
 const App = () => {
   const { appRef, wrapperRef } = useScaleUI(1080, 1920);
-  const selectionPool = useSound(selectionSound);
-  const tapPool = useSound(tapSound, { poolSize: 5 });
-  const rewardPool = useSound(rewardSound);
+  useEffect(() => bindSoundGestures(wrapperRef.current), [wrapperRef]);
+  const selectionPool = useSound(selectionSound, { backend: "media" });
+  const tapPool = useSound(tapSound, { backend: "media", poolSize: 5 });
+  const rewardPool = useSound(rewardSound, { backend: "media" });
   const rewardPlayback = useRef(null);
+  const selectionPlayback = useRef(null);
+  const tapPlayback = useRef(new Set());
   const [game, setGame] = useState(initialGame);
   const current = useRef(initialGame);
   const commit = useCallback((patch) => {
@@ -100,7 +103,7 @@ const App = () => {
     const advance = () => {
       if (finished || current.current.phase !== phase || current.current.taps !== game.taps) return;
       finished = true;
-      if (phase === "select-exit") selectionPool.current?.elements.forEach(stopSound);
+      if (phase === "select-exit") stopSound(selectionPlayback.current);
       commit({ phase: nextPhase[phase] });
     };
     const onEnd = (event) => {
@@ -113,8 +116,8 @@ const App = () => {
           if (current.current.phase !== phase) return;
           commit({ phase: destination });
           if (destination === "reward-reveal") {
-            selectionPool.current?.elements.forEach(stopSound);
-            tapPool.current?.elements.forEach(stopSound);
+            stopSound(selectionPlayback.current);
+            tapPlayback.current.forEach(stopSound);
             rewardPlayback.current = playSound(rewardPool);
           }
         });
@@ -142,54 +145,9 @@ const App = () => {
 
   useEffect(() => {
     if (game.phase !== "reward-complete") return;
-    const source = rewardPlayback.current;
-    let minimumElapsed = false;
-    let soundFinished = !source || source.ended;
-    let handedOff = false;
-    let progressTimer;
-    let lastPosition = source?.currentTime ?? 0;
-    let lastProgress = performance.now();
-    const handoff = () => {
-      if (handedOff || !minimumElapsed || !soundFinished || current.current.phase !== "reward-complete") return;
-      handedOff = true;
-      stopSound(source);
-      commit({ phase: "end-enter" });
-    };
-    const onEnded = () => {
-      soundFinished = true;
-      clearTimeout(progressTimer);
-      handoff();
-    };
-    const onFailure = () => {
-      stopSound(source);
-      onEnded();
-    };
-    const checkProgress = () => {
-      if (soundFinished || handedOff) return;
-      const position = source.currentTime;
-      if (position > lastPosition + 0.01) {
-        lastPosition = position;
-        lastProgress = performance.now();
-      }
-      // Only stalled/blocked playback times out; progressing audio can finish.
-      if (source.error || performance.now() - lastProgress >= 2000) onFailure();
-      else progressTimer = setTimeout(checkProgress, 250);
-    };
-    source?.addEventListener("ended", onEnded);
-    source?.addEventListener("error", onFailure);
-    const minimumTimer = setTimeout(() => {
-      minimumElapsed = true;
-      handoff();
-    }, 2000);
-    if (!soundFinished) progressTimer = setTimeout(checkProgress, 250);
-    return () => {
-      handedOff = true;
-      clearTimeout(minimumTimer);
-      clearTimeout(progressTimer);
-      source?.removeEventListener("ended", onEnded);
-      source?.removeEventListener("error", onFailure);
-      stopSound(source);
-    };
+    return waitForSoundCompletion(rewardPlayback.current, { minimumMs: 2000, onComplete: () => {
+      if (current.current.phase === "reward-complete") commit({ phase: "end-enter" });
+    } });
   }, [game.phase, commit]);
 
   const finishEndReveal = useCallback(() => {
@@ -200,7 +158,7 @@ const App = () => {
     event.stopPropagation();
     if (!event.isTrusted || !event.isPrimary || event.button !== 0 || current.current.phase !== "select-idle") return;
     event.preventDefault();
-    playSound(selectionPool);
+    selectionPlayback.current = playSound(selectionPool, { gesture: event.nativeEvent });
     commit({ selected, phase: "selecting" });
   };
   const tapGift = (event) => {
@@ -209,7 +167,8 @@ const App = () => {
     if (!event.isTrusted || !event.isPrimary || event.button !== 0 || !["unpack-idle", "unpack-tapping"].includes(active.phase) || active.complete) return;
     event.preventDefault();
     const taps = active.taps + 1;
-    playSound(tapPool);
+    const cue = playSound(tapPool, { gesture: event.nativeEvent });
+    if (cue) { tapPlayback.current.add(cue); cue.finished.then(() => tapPlayback.current.delete(cue)); }
     commit({ taps, complete: taps === 5, phase: taps === 5 ? "completing" : "unpack-tapping" });
   };
 

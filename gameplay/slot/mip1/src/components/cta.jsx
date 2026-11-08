@@ -1,4 +1,4 @@
-import ctaImage from "../Assets/img/cta.webp";
+import ctaImage from "../assets/img/cta.webp";
 
 // Shared by the gameplay CTA, compatibility helpers, and end-scene overlay.
 // eslint-disable-next-line react-refresh/only-export-components
@@ -15,7 +15,7 @@ export const Cta = ({ ready = true, active = true }) => (
       className="pointer-events-none absolute left-1/2 top-[1632px] z-50 w-[610px] -translate-x-1/2 select-none entrance-asset cta-entrance animate-scale-pulse"
       draggable="false"
     />
-    <button
+    <button data-sfx-exclude=""
       type="button"
       data-cta="true"
       aria-label="Shop Now"

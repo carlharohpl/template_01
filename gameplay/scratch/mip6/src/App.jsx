@@ -1,11 +1,33 @@
-import { prepareImage } from "./hooks/prepareImage";
+function prepareImage(image, timeoutMs = 1800) {
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      image.removeEventListener("load", decode);
+      image.removeEventListener("error", finish);
+      resolve();
+    };
+    const decode = () => {
+      if (typeof image.decode !== "function") { finish(); return; }
+      try { Promise.resolve(image.decode()).then(finish, finish); }
+      catch { finish(); }
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    image.addEventListener("load", decode, { once: true });
+    image.addEventListener("error", finish, { once: true });
+    if (image.complete) decode();
+  });
+}
+
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import useScaleUI from "./hooks/useScaleUI";
-import useSound, { handleUnlockGesture, playSound, stopSound, waitForSoundCompletion } from "./hooks/useSound";
-import scratchingSound from "./assets/sounds/scratching.mp3";
-import tryAgainSound from "./assets/sounds/wrong3.mp3";
-import gameWinSound from "./assets/sounds/gamewin5.mp3";
-import endSceneSound from "./assets/sounds/endscene3-optimized.mp3";
+import useSound, { bindSoundGestures, handleUnlockGesture, playSound, retrySound, stopSound, waitForSoundCompletion  } from "./hooks/useSound";
+import scratchingSound from "./assets/sounds/scratching.mp3?inline";
+import tryAgainSound from "./assets/sounds/wrong3.mp3?inline";
+import gameWinSound from "./assets/sounds/gamewin5.mp3?inline";
+import endSceneSound from "./assets/sounds/endscene3-optimized.mp3?inline";
 import { Cta } from "./components/cta";
 import EndScene from "./components/endscene";
 import logo from "./assets/img/logo.webp";
@@ -51,10 +73,11 @@ const sectionAt = (x, y) => SECTIONS.findIndex((section) =>
 
 const App = () => {
   const { appRef, wrapperRef } = useScaleUI(1080, 1920);
-  const scratchAudio = useSound(scratchingSound);
-  const tryAgainAudio = useSound(tryAgainSound, { lowLatency: true });
-  const gameWinAudio = useSound(gameWinSound, { lowLatency: true });
-  const endSceneAudio = useSound(endSceneSound, { lowLatency: true });
+  useEffect(() => bindSoundGestures(wrapperRef.current), [wrapperRef]);
+  const scratchAudio = useSound(scratchingSound, { backend: "media" });
+  const tryAgainAudio = useSound(tryAgainSound, { backend: "media" });
+  const gameWinAudio = useSound(gameWinSound, { backend: "media" });
+  const endSceneAudio = useSound(endSceneSound, { backend: "media" });
   const scratchSourceRef = useRef(null);
   const tryAgainSourceRef = useRef(null);
   const gameWinSourceRef = useRef(null);
@@ -260,11 +283,12 @@ const App = () => {
     };
   }, [scene, stopScratching]);
 
-  const soundWhileScratching = () => {
-    if (!scratchSourceRef.current) {
-      scratchSourceRef.current = playSound(scratchAudio, { volume: 0.65, loop: true });
+  const soundWhileScratching = (gesture) => {
+    if (!scratchSourceRef.current || ["cancelled", "ended", "failed"].includes(scratchSourceRef.current.status)) {
+      scratchSourceRef.current = playSound(scratchAudio, { volume: 0.65, loop: true, gesture });
     }
     if (scratchSourceRef.current) scratchSourceRef.current.muted = false;
+    retrySound(scratchSourceRef.current, gesture);
     window.clearTimeout(scratchIdleRef.current);
     scratchIdleRef.current = window.setTimeout(() => {
       // Keep the same decoder alive during a held gesture; idle is silent.
@@ -452,7 +476,7 @@ const App = () => {
     state.bounds = bounds;
     setScene("scratching");
     scratchSamples([event], state.bounds);
-    if (state.previous) soundWhileScratching();
+    if (state.previous) soundWhileScratching(event.nativeEvent || event);
     checkProgress();
   };
 
@@ -463,7 +487,7 @@ const App = () => {
     const state = scratchRef.current;
     state.bounds ||= event.currentTarget.getBoundingClientRect();
     scratchSamples(samples.length ? samples : [event], state.bounds);
-    if (scratchRef.current.previous) soundWhileScratching();
+    if (scratchRef.current.previous) soundWhileScratching(event.nativeEvent || event);
     else stopScratching();
     checkProgress();
   };
@@ -518,7 +542,7 @@ const App = () => {
       const now = performance.now();
       if (scratchSourceRef.current?.paused && now - (state.audioRetryAt || 0) > 250) {
         state.audioRetryAt = now;
-        handleUnlockGesture(event);
+        retrySound(scratchSourceRef.current, event);
       }
       handlePointerMove(input);
     } else {

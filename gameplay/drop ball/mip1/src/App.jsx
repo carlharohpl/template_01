@@ -5,11 +5,10 @@ import Composite from 'matter-js/src/body/Composite'
 import Engine from 'matter-js/src/core/Engine'
 import Events from 'matter-js/src/core/Events'
 import Runner from 'matter-js/src/core/Runner'
-import './game.css'
 import useScaleUI from './hooks/useScaleUI'
-import { useSound, waitForSoundCompletion } from './hooks/useSound'
+import { bindSoundGestures, useSound, waitForSoundCompletion  } from './hooks/useSound';
 import { Cta } from './components/cta'
-import EndScene from './components/EndScene'
+import EndScene from './components/endscene'
 import logo from './assets/img/logo.webp'
 import subtitle from './assets/img/subtitle.webp'
 import background from './assets/img/bg.webp'
@@ -46,6 +45,7 @@ const ASSETS = [logo, subtitle, background, hand, retry, winSlot, overlay, youWo
 
 export default function App() {
   const { wrapperRef, appRef } = useScaleUI(1080, 1920)
+  useEffect(() => bindSoundGestures(wrapperRef.current), [wrapperRef]);
   const engineRef = useRef(null)
   const runnerRef = useRef(null)
   const bodyRef = useRef(null)

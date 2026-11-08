@@ -40,47 +40,49 @@ export function readCalendarSearch() {
   return "";
 }
 
-export function readAppLovinPreviewSearch() {
+function readAppLovinPreviewSearch() {
   try {
     if (typeof window === "undefined" || window.parent === window) return null;
     const preview = window.parent;
-    const { protocol, hostname, pathname, origin, search } = preview.location;
-    if (!/^https:$/.test(protocol) || hostname !== "playable.applovindemo.com" ||
-      !/^\/Preview\/(?:index\.html|mobilePreview\.html)?$/i.test(pathname) ||
-      window.location.origin !== origin || !window.location.pathname.startsWith("/phaser/")) {
+    // Construct the standard URL object without a call-shaped URL token:
+    // some creative validators scan JavaScript as if it were CSS.
+    const url = Reflect.construct(URL, [preview.location.href]);
+    if (!/^https:$/.test(url.protocol) || url.hostname !== "playable.applovindemo.com" ||
+      !/^\/Preview\/(?:index\.html|mobilePreview\.html)?$/i.test(url.pathname) ||
+      window.location.origin !== url.origin || !window.location.pathname.startsWith("/phaser/")) {
       return null;
     }
 
     // Explicit creative parameters win. Preserve every existing date value,
     // including invalid/empty values that must keep normal fallback behavior.
     if (new URLSearchParams(window.location.search).has("date")) return window.location.search;
-    const params = new URLSearchParams(search);
-    if (!params.has("date")) {
-      const url = Reflect.construct(URL, [preview.location.href]);
+    if (!url.searchParams.has("date")) {
       url.searchParams.set("date", localDateKey(new Date()));
       preview.history.replaceState(preview.history.state, "", url.href);
-      return url.search;
     }
-    return search;
+    return url.search;
   } catch {
     // Restricted hosts/history access must never block the creative.
     return null;
   }
 }
 
-export function readLocalPreviewSearch() {
+function readLocalPreviewSearch() {
   try {
+    // Local development and directly opened exports share editable previews.
+    // Other served creatives and embedded documents retain their own rules.
     if (typeof window === "undefined" || window.parent !== window) return null;
-    const { protocol, hostname, search } = window.location;
-    const local = protocol === "file:" ||
-      (/^https?:$/.test(protocol) && ["localhost", "127.0.0.1", "[::1]"].includes(hostname));
-    if (!local) return null;
-    if (new URLSearchParams(search).has("date")) return search;
     const url = Reflect.construct(URL, [window.location.href]);
-    url.searchParams.set("date", localDateKey(new Date()));
-    window.history.replaceState(window.history.state, "", url.href);
+    const isLocalhost = /^https?:$/.test(url.protocol) &&
+      ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+    if (url.protocol !== "file:" && !isLocalhost) return null;
+    if (!url.searchParams.has("date")) {
+      url.searchParams.set("date", localDateKey(new Date()));
+      window.history.replaceState(window.history.state, "", url.href);
+    }
     return url.search;
   } catch {
+    // Restricted history access must not prevent normal date rendering.
     return null;
   }
 }
@@ -157,14 +159,12 @@ export function subscribeCalendarClock(clock, onChange) {
   window.addEventListener("focus", refresh);
   window.addEventListener("pageshow", refresh);
   document.addEventListener("visibilitychange", onVisibility);
-  document.addEventListener("resume", refresh);
-  const bridge = window.mraid;
-  let listeningToBridge = false;
+  let removeViewable = null;
   try {
-    if (window.isMraidUsable?.(bridge) && typeof bridge?.addEventListener === "function" &&
-      typeof bridge?.removeEventListener === "function") {
-      bridge.addEventListener("viewableChange", onViewable);
-      listeningToBridge = true;
+    if (window.isMraidUsable?.(window.mraid) && typeof window.mraid?.addEventListener === "function" &&
+      typeof window.mraid?.removeEventListener === "function") {
+      removeViewable = window.mraid.removeEventListener.bind(window.mraid, "viewableChange", onViewable);
+      window.mraid.addEventListener("viewableChange", onViewable);
     }
   } catch {
     // Browser visibility and local-midnight refresh remain available.
@@ -177,9 +177,8 @@ export function subscribeCalendarClock(clock, onChange) {
     window.removeEventListener("focus", refresh);
     window.removeEventListener("pageshow", refresh);
     document.removeEventListener("visibilitychange", onVisibility);
-    document.removeEventListener("resume", refresh);
-    if (listeningToBridge) {
-      try { bridge.removeEventListener("viewableChange", onViewable); } catch { /* Host may have disposed its bridge. */ }
+    if (removeViewable) {
+      try { removeViewable(); } catch { /* Host may have disposed its bridge. */ }
     }
   };
 }

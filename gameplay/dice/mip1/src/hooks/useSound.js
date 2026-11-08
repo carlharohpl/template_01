@@ -81,9 +81,8 @@ function getSession() {
     if (typeof window.mraid?.isViewable === "function") session.hostVisible = Boolean(window.mraid.isViewable());
     if (typeof window.mraid?.addEventListener === "function" && typeof window.mraid?.removeEventListener === "function") {
       const onViewable = value => { session.hostVisible = Boolean(value); refreshVisibility(session); };
-      const removeViewableListener = window.mraid.removeEventListener.bind(window.mraid);
+      session.removeListeners.push(window.mraid.removeEventListener.bind(window.mraid, "viewableChange", onViewable));
       window.mraid.addEventListener("viewableChange", onViewable);
-      session.removeListeners.push(() => removeViewableListener("viewableChange", onViewable));
     }
   } catch { /* Browser/host without a usable media lifecycle bridge. */ }
   refreshVisibility(session);
@@ -567,13 +566,12 @@ function createMediaPool(src, overflow) {
     listen(document, "visibilitychange", sync);
     listen(window, "pagehide", () => { pageHidden = true; sync(); });
     listen(window, "pageshow", () => { pageHidden = false; sync(); });
-      try {
+    try {
       if (typeof window.mraid?.isViewable === "function") hostVisible = Boolean(window.mraid.isViewable());
       if (typeof window.mraid?.addEventListener === "function" && typeof window.mraid?.removeEventListener === "function") {
         const changed = value => { hostVisible = Boolean(value); sync(); };
-        const removeViewableListener = window.mraid.removeEventListener.bind(window.mraid);
+        remove.push(window.mraid.removeEventListener.bind(window.mraid, "viewableChange", changed));
         window.mraid.addEventListener("viewableChange", changed);
-        remove.push(() => removeViewableListener("viewableChange", changed));
       }
     } catch { /* Browser without a usable bridge. */ }
     sync();

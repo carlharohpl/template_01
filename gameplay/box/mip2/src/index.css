@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+html, body { background: #fff; }
+.congratulations-background {
+  top: calc(var(--ui-top, 0px) + 245px * var(--ui-scale, 1));
+  height: calc(1330px * var(--ui-scale, 1));
+  background: #f9f7ed;
+  box-shadow: 0 0 calc(16px * var(--ui-scale, 1)) rgb(41 46 77 / 18%);
+}
+.congratulations-default-background {
+  top: calc(var(--ui-top, 0px) + 293px * var(--ui-scale, 1));
+  height: calc(1237px * var(--ui-scale, 1));
+}
+
+/* Foregrounds stay mounted and paused until decoding and two rendering frames. */
+.logo-enter { animation: logo-enter 500ms ease-out both; }
+.instruction-enter { animation: instruction-enter 420ms 120ms ease-out both; }
+.gift-enter { animation: gift-pop 500ms 240ms cubic-bezier(.2,.7,.3,1) both; }
+.gift-2 { animation-name: gift-sweep; animation-delay: 340ms; }
+.gift-3 { animation-name: gift-settle; animation-delay: 440ms; }
+.gift-4 { animation-name: gift-rise; animation-delay: 600ms; }
+.animate-scale-pulse.cta-enter { animation: cta-enter 400ms 700ms ease-out both, scale-pulse 1.6s 1100ms ease-in-out infinite; }
+[data-started="false"] .logo-enter,
+[data-started="false"] .instruction-enter,
+[data-started="false"] .gift-enter,
+[data-started="false"] .cta-enter,
+[data-phase="final-ready"] .congratulations-enter,
+[data-phase="final-ready"] .youve-got-enter,
+[data-phase="final-ready"] .offer-enter,
+[data-phase="final-ready"] .promo-heading-enter { animation-play-state: paused; }
+
+@keyframes logo-enter { from { opacity: 0; transform: translateY(-18px); } to { opacity: 1; transform: none; } }
+@keyframes instruction-enter { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+@keyframes gift-pop { from { opacity: 0; transform: scale(.88); } 78% { opacity: 1; transform: scale(1.018); } to { opacity: 1; transform: none; } }
+@keyframes gift-sweep { from { opacity: 0; transform: translate(38px, 10px) rotate(2deg); } to { opacity: 1; transform: none; } }
+@keyframes gift-settle { from { opacity: 0; transform: translateY(10px) scale(.92); } 72% { opacity: 1; transform: translateY(-6px) scale(1.012); } to { opacity: 1; transform: none; } }
+@keyframes gift-rise { from { opacity: 0; transform: translate(-20px, 40px) rotate(-2deg) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes cta-enter { from { opacity: 0; transform: translateY(25px); } to { opacity: 1; transform: none; } }
+
+.guide-hand { opacity: 0; transform-origin: 12% 12%; animation: guide-hand 1.6s ease-in-out infinite; }
+.guide-gift { animation: guide-gift 1.6s ease-in-out infinite; }
+@keyframes guide-hand {
+  0%, 12% { opacity: 0; transform: translate(22px, 32px); }
+  24% { opacity: 1; transform: translate(12px, 18px); }
+  38% { opacity: 1; transform: translate(0, -7px); }
+  44% { opacity: 1; transform: translate(-3px, 4px) scale(.94); }
+  53% { opacity: 1; transform: translate(2px, -3px); }
+  72%, 100% { opacity: 0; transform: translate(14px, 24px); }
+}
+@keyframes guide-gift {
+  0%, 38%, 64%, 100% { transform: none; }
+  44% { transform: translateX(-8px) rotate(-6deg) scale(1.065); }
+  50% { transform: translateX(8px) rotate(6deg) scale(1.045); }
+  57% { transform: translateX(-3px) rotate(-2.5deg) scale(1.015); }
+}
+.gift-art { transition: opacity 200ms ease-out; }
+.gift-selected { animation: selected-wiggle 280ms ease-out both; }
+.gift-opened { animation: gift-opened 200ms ease-out both; }
+.gift-dismissed { opacity: 0; visibility: hidden; }
+.gift-reset { animation: gift-reset 300ms ease-out both; }
+@keyframes selected-wiggle {
+  0% { transform: none; }
+  18% { transform: translateY(5px) scale(.97); }
+  42% { transform: rotate(-3deg) scale(1.045); }
+  70% { transform: rotate(2.5deg) scale(1.025); }
+  100% { transform: none; }
+}
+@keyframes gift-opened { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.82); } }
+@keyframes gift-reset { from { opacity: 1; transform: none; } to { opacity: 1; transform: none; } }
+.try-result { animation: try-result 580ms ease-out both; }
+.try-result-covered { animation: try-result-covered 150ms ease-out both; }
+@keyframes try-result-covered { from { opacity: 1; transform: none; } to { opacity: 0; transform: none; } }
+@keyframes try-result { 0% { opacity: 0; transform: scale(.82); } 48% { opacity: 1; transform: scale(1.015); } 65%, 100% { opacity: 1; transform: none; } }
+.retry-overlay { animation: retry-overlay 1000ms cubic-bezier(.2,.7,.3,1) both; }
+.retry-veil {
+  left: calc(-1 * var(--ui-left, 0px) / var(--ui-scale, 1));
+  top: 690px;
+  width: calc(100dvw / var(--ui-scale, 1));
+  height: 690px;
+  background: #f9f7ed;
+  overflow: hidden;
+  animation: retry-veil 300ms ease-out both;
+}
+/* The background fades as one surface; its blurred artwork stays static. */
+.retry-blur-gift { opacity: .32; }
+.retry-overlay-exit { animation: retry-overlay-exit 300ms ease-out both; }
+.retry-veil-exit { animation: retry-veil-exit 300ms ease-out both; }
+@keyframes retry-overlay {
+  0% { opacity: 0; transform: translateY(18px) scale(.92); }
+  30% { opacity: 1; transform: translateY(-3px) scale(1.01); }
+  40%, 100% { opacity: 1; transform: none; }
+}
+@keyframes retry-veil { from { opacity: 0; } to { opacity: 1; } }
+@keyframes retry-overlay-exit { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-7px) scale(.98); } }
+@keyframes retry-veil-exit { from { opacity: 1; } to { opacity: 0; } }
+.reward-enter { animation: reward-enter 650ms cubic-bezier(.2,.7,.3,1) both; }
+@keyframes reward-enter {
+  0% { opacity: 0; transform: translateY(24px) scale(.72); }
+  18% { opacity: 0; transform: translateY(18px) scale(.76); }
+  72% { opacity: 1; transform: translateY(-7px) scale(1.06); }
+  88% { opacity: 1; transform: translateY(2px) scale(.99); }
+  100% { opacity: 1; transform: none; }
+}
+.reward-exit { animation: reward-exit 320ms ease-in-out both; }
+.support-exit { animation: support-exit 320ms ease-in both; }
+@keyframes reward-exit { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-12px) scale(.96); } }
+@keyframes support-exit { from { opacity: 1; } to { opacity: 0; transform: translateY(-12px); } }
+.congratulations-enter { animation: congratulations-enter 450ms ease-out both; }
+.youve-got-enter { animation: youve-got-enter 360ms 100ms ease-out both; }
+.offer-enter { animation: offer-enter 600ms 180ms cubic-bezier(.2,.7,.3,1) both; }
+.promo-heading-enter { animation: promo-heading-enter 600ms 180ms cubic-bezier(.2,.7,.3,1) both; transform-origin: 50% 426.5px; }
+@keyframes congratulations-enter { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+@keyframes youve-got-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes offer-enter { from { opacity: 0; transform: scale(.94); } 80% { opacity: 1; transform: scale(1.008); } to { opacity: 1; transform: none; } }
+@keyframes promo-heading-enter { from { opacity: 0; transform: scale(.94); } 80% { opacity: 1; transform: scale(1.008); } to { opacity: 1; transform: none; } }
+
+.gift-hit { touch-action: none; }
+.gift-hit:focus-visible, .cta-hit:focus-visible { outline: 4px solid #292e4d; outline-offset: 5px; }
+.gift-hit:disabled, .cta-hit:disabled { pointer-events: none; }
+@keyframes scale-pulse {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.2; }
+}
+.animate-scale-pulse { animation: scale-pulse 1.6s ease-in-out infinite; }
+.scene-inactive .animate-scale-pulse { animation-play-state: paused; }
+.end-scene-fade { opacity: 0; transition: opacity 500ms ease-out; }
+.end-scene-fade.is-visible { opacity: 1; }
+.end-scene-fade:not(.is-visible) .animate-scale-pulse { animation-play-state: paused; }

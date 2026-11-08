@@ -1,7 +1,29 @@
-import { prepareImage } from "./hooks/prepareImage";
+function prepareImage(image, timeoutMs = 1800) {
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      image.removeEventListener("load", decode);
+      image.removeEventListener("error", finish);
+      resolve();
+    };
+    const decode = () => {
+      if (typeof image.decode !== "function") { finish(); return; }
+      try { Promise.resolve(image.decode()).then(finish, finish); }
+      catch { finish(); }
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    image.addEventListener("load", decode, { once: true });
+    image.addEventListener("error", finish, { once: true });
+    if (image.complete) decode();
+  });
+}
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import useScaleUI from "./hooks/useScaleUI";
-import useSound, { handleUnlockGesture, playSound, stopSound, waitForSoundCompletion } from "./hooks/useSound";
+import useSound, { bindSoundGestures, handleUnlockGesture, playSound, stopSound, waitForSoundCompletion  } from "./hooks/useSound";
 import { Cta } from "./components/cta";
 import EndScene from "./components/endscene";
 import logoblack from "./assets/img/newassets/logoblack.webp";
@@ -19,9 +41,9 @@ import item1 from "./assets/img/newassets/item1.webp";
 import item2 from "./assets/img/newassets/item2.webp";
 import item3 from "./assets/img/newassets/item3.webp";
 import item4 from "./assets/img/newassets/item4.webp";
-import spinSound from "./assets/sounds/spin.mp3";
-import offerSound from "./assets/sounds/gamewin2.mp3";
-import wrongSound from "./assets/sounds/wrong3.mp3";
+import spinSound from "./assets/sounds/spin.mp3?inline";
+import offerSound from "./assets/sounds/gamewin2.mp3?inline";
+import wrongSound from "./assets/sounds/wrong3.mp3?inline";
 
 const ASSETS = [bg, logoblack, logowhite, subtitle1, wheel, pointer, playbutton, hand, ctablack, ctawhite, congratulations, item1, item2, item3, item4];
 const CONFETTI_COLORS = ["#FFB800", "#F59A00", "#FFD044"];
@@ -46,13 +68,15 @@ function createConfettiPieces() {
 
 const App = () => {
   const { appRef, wrapperRef } = useScaleUI(1080, 1920);
+  useEffect(() => bindSoundGestures(wrapperRef.current), [wrapperRef]);
   const wheelRef = useRef(null);
   const spinButtonRef = useRef(null);
   const spinAudioRef = useRef(null);
-  const offerSoundPool = useSound(offerSound);
+  const spinPool = useSound(spinSound, { backend: "media" });
+  const offerSoundPool = useSound(offerSound, { backend: "media" });
   const offerAudioRef = useRef(null);
   const offerSoundPlayedRef = useRef(false);
-  const wrongSoundPool = useSound(wrongSound);
+  const wrongSoundPool = useSound(wrongSound, { backend: "media" });
   const wrongAudioRef = useRef(null);
   const viewableRef = useRef(true);
   const phaseRef = useRef("loading");
@@ -111,9 +135,6 @@ const App = () => {
   const stopAllAudio = useCallback(() => {
     stopSound(spinAudioRef.current);
     // Rewind during the result hold so the next tap reuses a ready audio player.
-    if (spinAudioRef.current?.readyState > 0 && spinAudioRef.current.currentTime !== 0) {
-      spinAudioRef.current.currentTime = 0;
-    }
     stopSound(wrongAudioRef.current);
     stopSound(offerAudioRef.current);
     wrongAudioRef.current = null;
@@ -129,17 +150,17 @@ const App = () => {
       if (!viewable) stopAllAudio();
     };
     // React is mounted only after the existing MRAID readiness guard.
-    const mraid = window.mraid;
+    const _removeHostListener = window.mraid?.removeEventListener?.bind(window.mraid);
     try {
-      viewableRef.current = mraid?.isViewable?.() ?? true;
+      viewableRef.current = window.mraid?.isViewable?.() ?? true;
     } catch {
       // Preview bridges may not expose viewability.
     }
     document.addEventListener("visibilitychange", onVisibilityChange);
-    mraid?.addEventListener?.("viewableChange", onViewableChange);
+    window.mraid?.addEventListener?.("viewableChange", onViewableChange);
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      mraid?.removeEventListener?.("viewableChange", onViewableChange);
+      _removeHostListener?.("viewableChange", onViewableChange);
       stopAllAudio();
     };
   }, [stopAllAudio]);
@@ -151,7 +172,7 @@ const App = () => {
     event.stopPropagation();
     if (!["idle", "retry"].includes(phaseRef.current) || !wheelRef.current) return;
     stopAllAudio();
-    handleUnlockGesture();
+    handleUnlockGesture(event);
     const from = spinRef.current.to;
     const attempt = spinRef.current.attempt + 1;
     // Six 60-degree segments: 0 centers FREE TRIAL, 60 centers TRY AGAIN.
@@ -162,15 +183,11 @@ const App = () => {
     spinRef.current = { from, to, attempt, result };
     changePhase("spinning");
     setSpin(spinRef.current);
-    // First construct inside a real gesture, then reuse the unlocked player on retries.
+    // Reuse the prepared player synchronously on the accepted click and retries.
     if (!document.hidden && viewableRef.current) {
-      const audio = spinAudioRef.current || new Audio(spinSound);
-      spinAudioRef.current = audio;
-      audio.play().catch((error) => {
-        if (error.name !== "AbortError") console.warn("Spin sound could not start", error);
-      });
+      spinAudioRef.current = playSound(spinPool);
     }
-  }, [changePhase, stopAllAudio]);
+  }, [changePhase, stopAllAudio, spinPool]);
 
   useEffect(() => {
     // Play and unlock directly on the tapped element, within its native gesture.

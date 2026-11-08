@@ -1,7 +1,29 @@
-import { prepareImage } from "./hooks/prepareImage";
+function prepareImage(image, timeoutMs = 1800) {
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      image.removeEventListener("load", decode);
+      image.removeEventListener("error", finish);
+      resolve();
+    };
+    const decode = () => {
+      if (typeof image.decode !== "function") { finish(); return; }
+      try { Promise.resolve(image.decode()).then(finish, finish); }
+      catch { finish(); }
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    image.addEventListener("load", decode, { once: true });
+    image.addEventListener("error", finish, { once: true });
+    if (image.complete) decode();
+  });
+}
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import useScaleUI from "./hooks/useScaleUI";
-import useSound, { handleUnlockGesture, playSound, stopSound, waitForSoundCompletion } from "./hooks/useSound";
+import useSound, { bindSoundGestures, handleUnlockGesture, playSound, stopSound, waitForSoundCompletion  } from "./hooks/useSound";
 import { Cta } from "./components/cta";
 import EndScene from "./components/endscene";
 import logo from "./assets/img/newassets/logo.webp";
@@ -11,8 +33,8 @@ import shadow from "./assets/img/newassets/shadow.webp";
 import clickhere from "./assets/img/newassets/clickhere.webp";
 import hand from "./assets/img/newassets/hand.webp";
 import cta from "./assets/img/newassets/cta.webp";
-import spinSound from "./assets/sounds/spin.mp3";
-import gamewinSound from "./assets/sounds/gamewin1.mp3";
+import spinSound from "./assets/sounds/spin.mp3?inline";
+import gamewinSound from "./assets/sounds/gamewin1.mp3?inline";
 
 const ASSETS = [logo, subtitle1, wheel, shadow, clickhere, hand, cta];
 const CONFETTI_COLORS = ["#4D523C", "#323429", "#2A2A2A", "#FFFFFF"];
@@ -39,10 +61,12 @@ function createConfettiPieces() {
 
 const App = () => {
   const { appRef, wrapperRef } = useScaleUI(1080, 1920);
+  useEffect(() => bindSoundGestures(wrapperRef.current), [wrapperRef]);
   const wheelRef = useRef(null);
   const spinButtonRef = useRef(null);
   const spinAudioRef = useRef(null);
-  const winSoundPool = useSound(gamewinSound);
+  const spinPool = useSound(spinSound, { backend: "media" });
+  const winSoundPool = useSound(gamewinSound, { backend: "media" });
   const winAudioRef = useRef(null);
   const viewableRef = useRef(true);
   const phaseRef = useRef("loading");
@@ -96,17 +120,17 @@ const App = () => {
       if (!viewable) stopAllAudio();
     };
     // React is mounted only after the existing MRAID readiness guard.
-    const mraid = window.mraid;
+    const _removeHostListener = window.mraid?.removeEventListener?.bind(window.mraid);
     try {
-      viewableRef.current = mraid?.isViewable?.() ?? true;
+      viewableRef.current = window.mraid?.isViewable?.() ?? true;
     } catch {
       // Preview bridges may not expose viewability.
     }
     document.addEventListener("visibilitychange", onVisibilityChange);
-    mraid?.addEventListener?.("viewableChange", onViewableChange);
+    window.mraid?.addEventListener?.("viewableChange", onViewableChange);
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      mraid?.removeEventListener?.("viewableChange", onViewableChange);
+      _removeHostListener?.("viewableChange", onViewableChange);
       stopAllAudio();
     };
   }, [stopAllAudio]);
@@ -117,7 +141,7 @@ const App = () => {
     event.preventDefault();
     event.stopPropagation();
     if (phaseRef.current !== "idle" || !wheelRef.current) return;
-    handleUnlockGesture();
+    handleUnlockGesture(event);
     // Read once before replacing the CSS idle animation, preserving its exact pose.
     const rotation = Number.parseFloat(getComputedStyle(wheelRef.current).rotate);
     const from = Number.isFinite(rotation) ? rotation : 20;
@@ -125,15 +149,11 @@ const App = () => {
     const to = Math.ceil((from + 5 * 360) / 360) * 360;
     changePhase("spinning");
     setSpin({ from, to });
-    // Construct within the real gesture; preserve the original cue's playback speed.
+    // The native gesture primed this pool; start it synchronously on the accepted click.
     if (!document.hidden && viewableRef.current) {
-      const audio = new Audio(spinSound);
-      spinAudioRef.current = audio;
-      audio.play().catch((error) => {
-        if (error.name !== "AbortError") console.warn("Spin sound could not start", error);
-      });
+      spinAudioRef.current = playSound(spinPool);
     }
-  }, [changePhase]);
+  }, [changePhase, spinPool]);
 
   useEffect(() => {
     // Play and unlock directly on the tapped element, within its native gesture.

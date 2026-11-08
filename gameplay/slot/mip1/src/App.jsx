@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import winSceneSfx from "./Assets/sound/Correct 1.mp3";
-import lossSceneSfx from "./Assets/sound/wrong3.mp3";
-import endSceneSfx from "./Assets/sound/Pop Prize 3.wav";
-import logo from "./Assets/img/logo.webp";
-import headline from "./Assets/img/subtitle1.webp";
-import bg from "./Assets/img/bg.webp";
-import tryAgainBackground from "./Assets/img/tryagainbg.webp";
+import winSceneSfx from "./assets/sound/Correct 1.mp3?inline";
+import lossSceneSfx from "./assets/sound/wrong3.mp3?inline";
+import endSceneSfx from "./assets/sound/Pop Prize 3.wav?inline";
+import logo from "./assets/img/logo.webp";
+import headline from "./assets/img/subtitle1.webp";
+import bg from "./assets/img/bg.webp";
+import tryAgainBackground from "./assets/img/tryagainbg.webp";
 import { Cta } from "./components/cta";
-import Scene2 from "./components/Scene2";
+import Scene2 from "./components/scene2";
 import EndScene from "./components/endscene";
-import { SlotMachine } from "./components/SlotMachine";
+import { SlotMachine } from "./components/slotmachine";
 import useScaleUI from "./hooks/useScaleUI";
-import { useSound } from "./hooks/useSound";
+import { bindSoundGestures, useSound  } from "./hooks/useSound";
 import { calendarClock, holidayText, subscribeCalendarClock } from "./hooks/calendarClock";
 
 const LOSS_SCENE_DELAY = 1200;
@@ -21,6 +21,7 @@ const END_SCENE_DATES = [{ startDate: "2026-11-17", endDate: "2026-11-30", text:
 
 function App() {
   const { appRef, wrapperRef } = useScaleUI(1080, 1920);
+  useEffect(() => bindSoundGestures(wrapperRef.current), [wrapperRef]);
   const [ready, setReady] = useState(false);
   const [ctaReady, setCtaReady] = useState(false);
   const [attempt, setAttempt] = useState(0);

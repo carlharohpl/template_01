@@ -2,14 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { openDestination } from "./cta";
 import endSceneHtml from "../assets/endscene/endscene.html?endcard";
 
-// Supply the host's real bridge before the provided creative starts its runtime.
-const bridgeScript = `<script>
-  try {
-    window.mraid = parent.mraid || window.mraid;
-    window.clickTag = parent.clickTag || window.clickTag;
-  } catch (error) {}
-</script>`;
-const endSceneDocument = endSceneHtml.replace("</head>", `${bridgeScript}</head>`);
+
+const endSceneDocument = endSceneHtml;
 
 const EndScene = ({ onReady }) => {
   const [visible, setVisible] = useState(false);
@@ -68,7 +62,7 @@ const EndScene = ({ onReady }) => {
         tabIndex={-1}
         onLoad={handleLoad}
       />
-      <button
+      <button data-sfx-exclude=""
         type="button"
         aria-label="Open offer"
         disabled={!visible}

@@ -48,7 +48,7 @@ export const Cta = ({ scene = "gameplay" }) => {
         draggable="false"
         ref={imageRef}
       />
-      <button
+      <button data-sfx-exclude=""
         ref={buttonRef}
         type="button"
         data-cta="true"

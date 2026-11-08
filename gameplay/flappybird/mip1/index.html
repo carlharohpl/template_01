@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+    <title>Spotminders</title>
+    <script src="mraid.js"></script>
+    <script>
+      (function () {
+        const readiness = new WeakMap();
+        const pendingReadiness = new Set();
+
+        function removeReadiness(record) {
+          pendingReadiness.delete(record);
+          if (record.remove) {
+            try { record.remove(); } catch (error) { /* Host disposed. */ }
+            record.remove = null;
+          }
+        }
+
+        function trackMraidReadiness(bridge) {
+          const record = readiness.get(bridge) || { ready: false, remove: null };
+          readiness.set(bridge, record);
+          if (record.ready || pendingReadiness.has(record)) return record;
+          if (typeof bridge.addEventListener === "function") {
+            const onReady = function () {
+              if (!pendingReadiness.has(record)) return;
+              record.ready = true;
+              removeReadiness(record);
+            };
+            try {
+              pendingReadiness.add(record);
+              if (typeof bridge.removeEventListener === "function") {
+                record.remove = bridge.removeEventListener.bind(bridge, "ready", onReady);
+              }
+              bridge.addEventListener("ready", onReady);
+            } catch (error) {
+              removeReadiness(record);
+              readiness.delete(bridge);
+            }
+          }
+          return record;
+        }
+
+        window.isMraidUsable = function (bridge) {
+          if (!bridge || (typeof bridge !== "object" && typeof bridge !== "function")) return false;
+          const record = trackMraidReadiness(bridge);
+          try {
+            if (typeof bridge.getState !== "function") return bridge === window.mraid && record.ready;
+            const state = bridge.getState();
+            return bridge === window.mraid && (state === "default" || state === "expanded");
+          } catch (error) {
+            return bridge === window.mraid && record.ready;
+          }
+        };
+        window.isMraidUsable.dispose = function () {
+          pendingReadiness.forEach(removeReadiness);
+        };
+      })();
+    </script>
+    <script>
+      (function () {
+        window.__mip = window.__mip || {};
+
+        // Keep initialization and destination guards raw so packaging can
+        // inspect executable code without bundler rewrites.
+        window.__mip.ready = function (callback) {
+          let cancelled = false;
+          let completed = false;
+          let removeReady = null;
+          function cleanup() {
+            if (removeReady) {
+              try { removeReady(); } catch (error) { /* Host disposed. */ }
+              removeReady = null;
+            }
+          }
+          function finish() {
+            if (cancelled || completed) return;
+            completed = true;
+            cleanup();
+            callback();
+          }
+          function waitForReady(bridge) {
+            if (typeof bridge.addEventListener !== "function") return;
+            const onReady = function () {
+              cleanup();
+              if (cancelled || completed) return;
+              if (bridge === window.mraid) finish();
+              else check();
+            };
+            try {
+              if (typeof bridge.removeEventListener === "function") {
+                removeReady = bridge.removeEventListener.bind(bridge, "ready", onReady);
+              }
+              bridge.addEventListener("ready", onReady);
+            } catch (error) { cleanup(); }
+          }
+          function check() {
+            if (!window.mraid) { finish(); return; }
+            try {
+              if (window.mraid.getState() === "loading") {
+                waitForReady(window.mraid);
+              } else if (window.isMraidUsable(window.mraid)) {
+                finish();
+              } else {
+                waitForReady(window.mraid);
+              }
+            } catch (error) { waitForReady(window.mraid); }
+          }
+          check();
+          return function () { cancelled = true; cleanup(); };
+        };
+
+        // Resolve only the platform-injected tag; never assign a default tag.
+        // Keep an explicit empty argument for the host-resolved destination.
+        window.__mip.openDestination = function handleMraidOpen() {
+          var injectedUrl = window.clickTag;
+          var destinationUrl = typeof injectedUrl === "string" ? injectedUrl.trim() : "";
+          try {
+            if (
+              window.mraid &&
+              typeof window.mraid.open === "function" &&
+              typeof window.isMraidUsable === "function" &&
+              window.isMraidUsable(window.mraid)
+            ) {
+              window.mraid.open(destinationUrl);
+            }
+          } catch (error) {
+            console.error("mraid.open failed", error);
+          }
+        };
+      })();
+    </script>
+    <script>
+      (function () {
+        window.__mip = window.__mip || {};
+        let disposeMedia = null;
+        const registered = new Set();
+        let sync = function () {};
+        window.__mip.registerMediaDocument = function (childDocument) {
+          registered.add(childDocument); sync();
+          return function () { registered.delete(childDocument); };
+        };
+        window.__mip.setupMediaViewability = function () {
+          if (disposeMedia) disposeMedia();
+          let hostVisible = true;
+          let pageHidden = false;
+          let active = true;
+          const removals = [];
+          const syncDocument = function (doc, viewable) {
+            doc.querySelectorAll('video, audio').forEach(function (element) {
+              if (!viewable) element.pause();
+              else if (element.tagName === 'VIDEO' && element.autoplay) element.play()?.catch(function () {});
+            });
+          };
+          sync = function () {
+            if (!active) return;
+            const viewable = hostVisible && !document.hidden && !pageHidden;
+            window.__mraidViewable = viewable;
+            syncDocument(document, viewable);
+            registered.forEach(function (doc) { try { syncDocument(doc, viewable); } catch (_) {} });
+            document.querySelectorAll('iframe').forEach(function (frame) {
+              try {
+                frame.contentWindow?.__sipSetViewable?.(viewable);
+                frame.contentWindow?.__mipSetViewable?.(viewable);
+                if (frame.contentDocument) syncDocument(frame.contentDocument, viewable);
+              } catch (_) { /* Isolated supplied frame. */ }
+            });
+            window.dispatchEvent(new CustomEvent('mraidViewableChange', { detail: { viewable } }));
+          };
+          const onLoad = function (event) { if (event.target?.tagName === 'IFRAME') sync(); };
+          const hide = function () { pageHidden = true; sync(); };
+          const show = function () { pageHidden = false; sync(); };
+          const changed = function (value) { hostVisible = Boolean(value); sync(); };
+          try {
+            if (typeof window.mraid?.isViewable === 'function') hostVisible = Boolean(window.mraid.isViewable());
+            if (typeof window.mraid?.addEventListener === 'function' && typeof window.mraid?.removeEventListener === 'function') {
+              removals.push(window.mraid.removeEventListener.bind(window.mraid, 'viewableChange', changed));
+              window.mraid.addEventListener('viewableChange', changed);
+            }
+          } catch (_) { /* Browser without host lifecycle support. */ }
+          document.addEventListener('load', onLoad, true);
+          document.addEventListener('visibilitychange', sync);
+          window.addEventListener('pagehide', hide);
+          window.addEventListener('pageshow', show);
+          sync();
+          const ownedSync = sync;
+          disposeMedia = function () {
+            active = false;
+            document.removeEventListener('load', onLoad, true);
+            document.removeEventListener('visibilitychange', ownedSync);
+            window.removeEventListener('pagehide', hide);
+            window.removeEventListener('pageshow', show);
+            removals.forEach(function (remove) { try { remove(); } catch (_) {} });
+            registered.clear();
+          };
+          return disposeMedia;
+        };
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <div id="game"></div>
+      <div id="game-ui" class="game-ui" hidden>
+        <img id="game-logo" class="positioned" alt="Spotminders" draggable="false" />
+        <div id="game-score" class="positioned game-score" role="status" aria-live="polite">YOUR SCORE: <span id="score-value">0</span></div>
+      </div>
+      <section id="end-card" class="end-card" aria-label="Your reward" hidden>
+        <img id="end-backdrop-pipe" class="end-backdrop-pipe" alt="" draggable="false" />
+        <div class="end-wash"></div>
+        <div id="end-confetti" class="end-confetti" aria-hidden="true"></div>
+        <div id="end-content" class="end-content">
+          <img id="end-logo" class="positioned" alt="Spotminders" draggable="false" />
+          <img id="end-congratulations" class="positioned" alt="Congratulations! You've got" draggable="false" />
+          <div id="offer-buy-3" hidden>
+            <img class="positioned offer-title" alt="Buy 3 Get 2 Free" draggable="false" />
+            <img class="positioned offer-tag-left" alt="Spotminders smart tag" draggable="false" />
+            <img class="positioned offer-tag-right" alt="Spotminders smart tag" draggable="false" />
+            <img class="positioned offer-badge-1" alt="Free shipping" draggable="false" />
+            <img class="positioned offer-badge-2" alt="Free mystery gift" draggable="false" />
+            <img class="positioned offer-badge-3" alt="Free 2x smart tags" draggable="false" />
+            <img class="positioned offer-badge-4" alt="Free USB-C charger" draggable="false" />
+          </div>
+          <div id="offer-buy-2" hidden>
+            <img class="positioned offer-title" alt="Buy 2 Get +1 Free" draggable="false" />
+            <img class="positioned offer-badge-1" alt="Free 1x smart tags" draggable="false" />
+            <img class="positioned offer-badge-2" alt="Free shipping" draggable="false" />
+            <img class="positioned offer-tag-1" alt="Spotminders smart tag" draggable="false" />
+            <img class="positioned offer-tag-2" alt="Spotminders smart tag" draggable="false" />
+            <img class="positioned offer-tag-3" alt="Spotminders smart tag" draggable="false" />
+          </div>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

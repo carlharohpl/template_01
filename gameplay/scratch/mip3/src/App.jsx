@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import useScaleUI from "./hooks/useScaleUI";
-import useSound, { handleUnlockGesture, playSound, stopSound, waitForSoundCompletion } from "./hooks/useSound";
-import scratchingSound from "./assets/sounds/scratching.mp3";
-import gameWinSound from "./assets/sounds/gamewin5.mp3";
-import endSceneSound from "./assets/sounds/endscene1.mp3";
+import useSound, { bindSoundGestures, handleUnlockGesture, playSound, retrySound, stopSound, waitForSoundCompletion  } from "./hooks/useSound";
+import scratchingSound from "./assets/sounds/scratching.mp3?inline";
+import gameWinSound from "./assets/sounds/gamewin5.mp3?inline";
+import endSceneSound from "./assets/sounds/endscene1.mp3?inline";
 import { Cta } from "./components/cta";
 import EndScene from "./components/endscene";
 import background from "./assets/img/crumpled-paper.webp";
@@ -43,9 +43,10 @@ const sectionAt = (x, y) => SECTIONS.findIndex((section) =>
 
 const App = () => {
   const { appRef, wrapperRef } = useScaleUI(1080, 1920);
-  const scratchAudio = useSound(scratchingSound);
-  const gameWinAudio = useSound(gameWinSound, { lowLatency: true });
-  const endSceneAudio = useSound(endSceneSound, { lowLatency: true });
+  useEffect(() => bindSoundGestures(wrapperRef.current), [wrapperRef]);
+  const scratchAudio = useSound(scratchingSound, { backend: "media" });
+  const gameWinAudio = useSound(gameWinSound, { backend: "media" });
+  const endSceneAudio = useSound(endSceneSound, { backend: "media" });
   const scratchSourceRef = useRef(null);
   const gameWinSourceRef = useRef(null);
   const endSceneSourceRef = useRef(null);
@@ -286,11 +287,12 @@ const App = () => {
 
   useEffect(() => () => window.clearTimeout(guideIdleRef.current), []);
 
-  const soundWhileScratching = () => {
-    if (!scratchSourceRef.current) {
-      scratchSourceRef.current = playSound(scratchAudio, { volume: 0.65, loop: true });
+  const soundWhileScratching = (gesture) => {
+    if (!scratchSourceRef.current || ["cancelled", "ended", "failed"].includes(scratchSourceRef.current.status)) {
+      scratchSourceRef.current = playSound(scratchAudio, { volume: 0.65, loop: true, gesture });
     }
     if (scratchSourceRef.current) scratchSourceRef.current.muted = false;
+    retrySound(scratchSourceRef.current, gesture);
     window.clearTimeout(scratchIdleRef.current);
     scratchIdleRef.current = window.setTimeout(muteScratching, 160);
   };
@@ -487,7 +489,7 @@ const App = () => {
     state.bounds = bounds;
     setScene("scratching");
     scratchSamples([event], state.bounds);
-    if (state.previous) soundWhileScratching();
+    if (state.previous) soundWhileScratching(event.nativeEvent || event);
     checkProgress();
   };
 
@@ -498,7 +500,7 @@ const App = () => {
     const state = scratchRef.current;
     state.bounds = event.currentTarget.getBoundingClientRect();
     scratchSamples(samples.length ? samples : [event], state.bounds);
-    if (state.previous) soundWhileScratching();
+    if (state.previous) soundWhileScratching(event.nativeEvent || event);
     else muteScratching();
     checkProgress();
   };
@@ -547,7 +549,7 @@ const App = () => {
       const now = performance.now();
       if (scratchSourceRef.current?.paused && now - (state.audioRetryAt || 0) > 250) {
         state.audioRetryAt = now;
-        handleUnlockGesture(event);
+        retrySound(scratchSourceRef.current, event);
       }
       handlePointerMove(input);
     } else {

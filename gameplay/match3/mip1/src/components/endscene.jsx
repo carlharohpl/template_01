@@ -2,17 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import endSceneHtml from "../assets/endscene/2mprojectllcmagnesium_acslanot_sip_20261015_02_emily_product_card_human_dh_unique.html?endcard";
 import { openDestination } from "./cta";
 import useSound, { playSound, stopSound } from "../hooks/useSound";
-import endSceneSound from "../assets/sounds/endscene1.mp3";
+import endSceneSound from "../assets/sounds/endscene1.mp3?inline";
 
-// Preserve the supplied document; only forward the host's ad-network globals.
-const bridgeScript = `
-<script>
-  try {
-    window.mraid = parent.mraid || window.mraid;
-    window.clickTag = parent.clickTag || window.clickTag;
-  } catch (error) {}
-</script>`;
-const bridgedHtml = endSceneHtml.replace("</head>", `${bridgeScript}</head>`);
+
+const bridgedHtml = endSceneHtml;
 
 export default function EndScene({ onReady, active = true, promoHeadline, dateLabel }) {
   const [visible, setVisible] = useState(false);
@@ -22,7 +15,7 @@ export default function EndScene({ onReady, active = true, promoHeadline, dateLa
   const frames = useRef([]);
   const mounted = useRef(false);
   const scheduled = useRef(false);
-  const endSceneAudio = useSound(endSceneSound);
+  const endSceneAudio = useSound(endSceneSound, { backend: "media" });
   const soundSource = useRef(null);
   const iframeRef = useRef(null);
 
@@ -92,7 +85,7 @@ export default function EndScene({ onReady, active = true, promoHeadline, dateLa
         className="pointer-events-none absolute inset-0 h-full w-full border-0"
         onLoad={() => { syncText(); scheduleReveal(); }}
       />
-      <button
+      <button data-sfx-exclude=""
         type="button"
         aria-label="Open offer"
         data-cta=""

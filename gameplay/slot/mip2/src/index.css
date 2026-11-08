@@ -1,0 +1,154 @@
+﻿@import "tailwindcss";
+
+/* Centering uses Tailwind's independent translate; travel owns transform. */
+@keyframes logo-arrive {
+  from { opacity: 0; transform: translateY(-34px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes banner-arrive {
+  from { opacity: 0; transform: translateX(-90px) scaleX(.94); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes headline-arrive {
+  from { opacity: 0; transform: translateX(32px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes machine-arrive {
+  0% { opacity: 0; transform: perspective(1600px) translateY(130px) rotateX(9deg) scale(.97); }
+  78% { opacity: 1; transform: perspective(1600px) translateY(-5px) rotateX(-.5deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes reel-background-arrive {
+  from { opacity: 0; transform: scaleY(.9); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes reel-left-arrive {
+  0% { opacity: 0; transform: translateY(calc(var(--reel-start) - 65px)); }
+  78% { opacity: 1; transform: translateY(calc(var(--reel-start) + 5px)); }
+  100% { opacity: 1; transform: translateY(var(--reel-start)); }
+}
+@keyframes reel-center-arrive {
+  0% { opacity: 0; transform: translateY(calc(var(--reel-start) + 80px)) scale(.94); }
+  82% { opacity: 1; transform: translateY(calc(var(--reel-start) - 4px)) scale(1); }
+  100% { opacity: 1; transform: translateY(var(--reel-start)); }
+}
+@keyframes reel-right-arrive {
+  0% { opacity: 0; transform: translateY(calc(var(--reel-start) - 45px)) rotate(-3deg); }
+  76% { opacity: 1; transform: translateY(calc(var(--reel-start) + 3px)) rotate(.3deg); }
+  100% { opacity: 1; transform: translateY(var(--reel-start)); }
+}
+@keyframes spin-arrive {
+  0% { opacity: 0; transform: translateY(18px) scale(.86); }
+  80% { opacity: 1; transform: translateY(-2px) scale(1.015); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes cta-arrive {
+  from { opacity: 0; transform: translateY(44px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes scale-pulse {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.2; }
+}
+.logo-entrance { animation: logo-arrive 520ms cubic-bezier(.2,.7,.2,1) both; }
+.banner-entrance { animation: banner-arrive 580ms 100ms cubic-bezier(.2,.7,.2,1) both; }
+.headline-entrance { animation: headline-arrive 450ms 180ms ease-out both; }
+.machine-entrance { animation: machine-arrive 780ms 200ms cubic-bezier(.2,.65,.25,1) both; }
+.reel-background-entrance { animation: reel-background-arrive 450ms 400ms ease-out both; }
+.reel-entrance-0 { animation: reel-left-arrive 500ms 450ms cubic-bezier(.2,.7,.3,1) both; }
+.reel-entrance-1 { animation: reel-center-arrive 540ms 530ms cubic-bezier(.2,.7,.3,1) both; }
+.reel-entrance-2 { animation: reel-right-arrive 500ms 610ms cubic-bezier(.2,.7,.3,1) both; }
+.spin-entrance { animation: spin-arrive 450ms 700ms cubic-bezier(.2,.7,.3,1) both; }
+.animate-scale-pulse { animation: scale-pulse 1.6s ease-in-out infinite; }
+.cta-entrance.animate-scale-pulse { animation: cta-arrive 500ms 650ms cubic-bezier(.2,.7,.2,1) both, scale-pulse 1.6s 1150ms ease-in-out infinite; }
+.scene-preparing .entrance-asset, .scene-inactive .entrance-asset { animation-play-state: paused; }
+
+/* The guide and simulated button press share a cycle, but never dispatch input. */
+@keyframes hand-tap {
+  0%, 100% { opacity: 0; transform: translate(48px, 48px) rotate(8deg) scale(1); }
+  18% { opacity: 1; transform: translate(28px, 10px) rotate(3deg) scale(1); }
+  36% { opacity: 1; transform: translate(-5px, -12px) rotate(-3deg) scale(1); }
+  44% { opacity: 1; transform: translate(-2px, -6px) rotate(-3deg) scale(.94); }
+  54% { opacity: 1; transform: translate(-5px, -12px) rotate(-3deg) scale(1); }
+  78% { opacity: 0; transform: translate(28px, 22px) rotate(4deg) scale(1); }
+}
+@keyframes spin-demo {
+  0%, 36%, 54%, 100% { transform: none; }
+  44% { transform: translate3d(0, 3px, 0) scale(.95); }
+}
+@keyframes spin-click {
+  0%, 24% { transform: translate3d(0, 5px, 0) scale(.92); }
+  72% { transform: translate3d(0, 0, 0) scale(1.015); }
+  100% { transform: none; }
+}
+.hand-guidance { animation: hand-tap 2200ms ease-in-out infinite both; }
+.spin-control { opacity: 1; transform: none; transform-origin: center; }
+.spin-control.spin-demo { animation: spin-demo 2200ms ease-in-out infinite; }
+.spin-control.spin-click { animation: spin-click 340ms cubic-bezier(.2,.7,.3,1) both; }
+
+/* Full-canvas clips retain independent symbol coordinates and frame stability. */
+.reel-window-0 { clip-path: inset(835px 650px 700px 210px round 20px); --reel-duration: 2400ms; --reel-delay: 0ms; }
+.reel-window-1 { clip-path: inset(835px 433px 700px 433px round 10px); --reel-duration: 2750ms; --reel-delay: 70ms; }
+.reel-window-2 { clip-path: inset(835px 210px 700px 650px round 20px); --reel-duration: 3100ms; --reel-delay: 140ms; }
+@keyframes reel-spin {
+  0% { transform: translateY(var(--reel-start)); animation-timing-function: cubic-bezier(.45,0,.8,.5); }
+  17% { transform: translateY(var(--reel-accelerate)); animation-timing-function: linear; }
+  62% { transform: translateY(var(--reel-brake)); animation-timing-function: cubic-bezier(.18,.62,.28,1); }
+  94% { transform: translateY(7px); animation-timing-function: cubic-bezier(.2,.7,.3,1); }
+  100% { transform: none; }
+}
+@keyframes reel-motion-blur {
+  0%, 88%, 100% { filter: blur(0); }
+  20%, 60% { filter: blur(1.6px); }
+}
+.reel-symbol { transform: translateY(var(--reel-start)); }
+.reel-spinning { animation: reel-motion-blur var(--reel-duration) var(--reel-delay) linear both; }
+.reel-spinning .reel-symbol { animation: reel-spin var(--reel-duration) var(--reel-delay) linear both; }
+.reel-settled .reel-symbol { transform: none; }
+
+
+
+
+/* Only the gameplay plane softens. Logo, result assets, and CTA stay sharp. */
+.gameplay-treatment { filter: blur(0); opacity: 1; transition: filter 450ms ease-out, opacity 450ms ease-out; }
+.gameplay-treatment.has-result { filter: blur(14px); opacity: .22; }
+@keyframes result-headline {
+  from { opacity: 0; transform: translateY(34px) scale(.95); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes result-product {
+  0% { opacity: 0; transform: translateY(75px) scale(.9); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes result-caption { from { opacity: 0; } to { opacity: 1; } }
+@keyframes result-retry {
+  from { opacity: 0; transform: scale(.91); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes retry-leave {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scale(1.025); }
+}
+.result-headline { animation: result-headline 550ms cubic-bezier(.2,.7,.2,1) both; }
+.result-product { animation: result-product 780ms 130ms cubic-bezier(.2,.65,.25,1) both; }
+.result-caption { animation: result-caption 450ms 570ms ease-out both; }
+.result-retry { animation: result-retry 450ms cubic-bezier(.2,.7,.2,1) both; }
+.result-preparing { animation-play-state: paused; visibility: hidden; }
+.result-retry.result-exiting { animation: retry-leave 350ms ease-in both; }
+
+/* Preserve the separate end-scene's established fade. */
+.gameplay-handoff { opacity: 1; transition: opacity 500ms ease-out; }
+.gameplay-handoff.is-hidden { opacity: 0; pointer-events: none; }
+.end-scene-fade { opacity: 0; transition: opacity 500ms ease-out; }
+.end-scene-fade.is-visible { opacity: 1; }
+
+
+
+
+/* Result feedback stays on the symbols inside each clipped reel window. */
+@keyframes symbol-feedback {
+  0%, 100% { transform: none; scale: 1; }
+  38% { transform: translateY(-13px); scale: 1.065; }
+  70% { transform: translateY(4px); scale: .99; }
+}
+.reel-settled .symbol-feedback { animation: symbol-feedback 460ms cubic-bezier(.25,.65,.3,1) both; }

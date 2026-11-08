@@ -15,7 +15,7 @@ export const Cta = () => (
       className="musely-cta-enter animate-scale-pulse pointer-events-none absolute left-1/2 top-[1649px] z-30 w-[460px] -translate-x-1/2 select-none"
       draggable="false"
     />
-    <button
+    <button data-sfx-exclude=""
       type="button"
       data-cta="true"
       aria-label="Shop Now"

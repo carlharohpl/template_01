@@ -15,7 +15,7 @@ export const Cta = ({ won = false, offerPanel = false }) => (
       className={`pointer-events-none absolute left-1/2 top-[1658px] z-[80] w-[679px] -translate-x-1/2 select-none scene-entrance animate-scale-pulse ${offerPanel ? "offer-panel-cta" : won ? "offer-cta-enter" : "cta-enter"}`}
       draggable="false"
     />
-    <button
+    <button data-sfx-exclude=""
       type="button"
       data-cta="true"
       aria-label="Shop now"

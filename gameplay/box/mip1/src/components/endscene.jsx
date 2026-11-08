@@ -2,17 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import useSound, { playSound, stopSound } from "../hooks/useSound";
 import { openDestination } from "./cta";
 import endCardHtml from "../assets/endscene/endscene.html?endcard";
-import endSound from "../assets/sounds/gamewin5.mp3";
+import endSound from "../assets/sounds/gamewin5.mp3?inline";
 
-const endCardDocument = endCardHtml.replace(/<\/head>/i, `<script>
-  try {
-    window.mraid = parent.mraid || window.mraid;
-    window.clickTag = parent.clickTag || window.clickTag;
-  } catch (_) {}
-</script></head>`);
+const endCardDocument = endCardHtml;
 
 const EndScene = ({ active = false, onReady }) => {
-  const soundPool = useSound(endSound);
+  const soundPool = useSound(endSound, { backend: "media" });
   const wrapper = useRef(null);
   const loaded = useRef(false);
   const reveal = useRef(null);
@@ -87,7 +82,7 @@ const EndScene = ({ active = false, onReady }) => {
           reveal.current?.();
         }}
       />
-      <button
+      <button data-sfx-exclude=""
         type="button"
         aria-label="Open offer"
         className="absolute inset-0 z-30 h-full w-full"

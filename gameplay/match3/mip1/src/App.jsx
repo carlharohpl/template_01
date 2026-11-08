@@ -1,5 +1,74 @@
 ﻿import { Fragment, useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
-import { useGameSounds } from './hooks/useSound';
+import useSound, { bindSoundGestures, playSound, stopSound, waitForSoundCompletion } from './hooks/useSound';
+import cardPop from './assets/sounds/pop1.mp3?inline';
+import correctMatch from './assets/sounds/correct1.mp3?inline';
+import wrongMatch from './assets/sounds/wrong3.mp3?inline';
+import gameWin from './assets/sounds/gamewin5.mp3?inline';
+import rewardReveal from './assets/sounds/gamewin2.mp3?inline';
+
+function useGameSounds(game, wrapperRef, onWinSoundEnded, onRewardSoundEnded) {
+  const correctAudio = useSound(correctMatch, { backend: "media" });
+  const wrongAudio = useSound(wrongMatch, { backend: "media" });
+  const winAudio = useSound(gameWin, { backend: "media" });
+  const rewardAudio = useSound(rewardReveal, { backend: "media" });
+  const feedbackSource = useRef(null);
+  const winStarted = useRef(false);
+  const rewardStarted = useRef(false);
+  const popPool = useSound(cardPop, { backend: "media", poolSize: 4 });
+  const activePops = useRef(new Set());
+  const soundPhase = game.phase === 'reward' ? 'reward-entering' : game.phase;
+  useEffect(() => bindSoundGestures(wrapperRef.current), [wrapperRef]);
+
+  useEffect(() => {
+    if (soundPhase === 'complete') {
+      stopSound(feedbackSource.current);
+      activePops.current.forEach(audio => stopSound(audio));
+      activePops.current.clear();
+      return;
+    }
+    const pool = soundPhase === 'mismatch' ? wrongAudio : soundPhase === 'matched' ? correctAudio : soundPhase === 'won' ? winAudio : soundPhase === 'reward-entering' ? rewardAudio : null;
+    if (!pool) return;
+    if (soundPhase === 'reward-entering') {
+      if (rewardStarted.current) return;
+      rewardStarted.current = true;
+    }
+    if (soundPhase === 'won') {
+      if (winStarted.current) return;
+      winStarted.current = true;
+      activePops.current.forEach(audio => stopSound(audio));
+      activePops.current.clear();
+    }
+    stopSound(feedbackSource.current);
+    feedbackSource.current = playSound(pool);
+    if (soundPhase !== 'won' && soundPhase !== 'reward-entering') return;
+
+    return waitForSoundCompletion(feedbackSource.current, { minimumMs: 0, onComplete: () => {
+      if (soundPhase === 'won') onWinSoundEnded?.(); else onRewardSoundEnded?.();
+    } });
+  }, [soundPhase, correctAudio, wrongAudio, winAudio, rewardAudio, onWinSoundEnded, onRewardSoundEnded]);
+
+  useEffect(() => {
+    const pops = activePops.current;
+    return () => {
+      pops.forEach(audio => stopSound(audio));
+      pops.clear();
+      stopSound(feedbackSource.current);
+    };
+  }, []);
+
+  const playCardPop = () => {
+    stopSound(feedbackSource.current);
+    const audio = playSound(popPool);
+    if (!audio) return;
+    activePops.current.add(audio);
+    audio.finished.then(() => activePops.current.delete(audio));
+  };
+
+  return playCardPop;
+}
+
+
+
 import useScaleUI from './hooks/useScaleUI';
 import { calendarClock, holidayText, subscribeCalendarClock } from './hooks/calendarClock';
 import { Cta } from './components/cta';

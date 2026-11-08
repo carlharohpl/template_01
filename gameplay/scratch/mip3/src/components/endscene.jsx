@@ -3,12 +3,7 @@ import { openDestination } from "./cta";
 import background from "../assets/img/crumpled-paper.webp";
 import endCardHtml from "../assets/endscene/endscene.html?endcard";
 
-const endCardDocument = endCardHtml.replace(/<\/head>/i, `<script>
-  try {
-    window.mraid = parent.mraid || window.mraid;
-    window.clickTag = parent.clickTag || window.clickTag;
-  } catch (error) {}
-</script></head>`);
+const endCardDocument = endCardHtml;
 
 const EndScene = ({ onReady }) => {
   const [visible, setVisible] = useState(false);
@@ -67,7 +62,7 @@ const EndScene = ({ onReady }) => {
         tabIndex={-1}
         onLoad={scheduleReveal}
       />
-      <button
+      <button data-sfx-exclude=""
         type="button"
         aria-label="Open offer"
         disabled={!visible}

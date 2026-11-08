@@ -16,7 +16,7 @@ export const Cta = ({ entranceReady = true, gameplay = false }) => (
       className={`cta-entrance animate-scale-pulse ${entranceReady ? "" : "scene-asset-pending"} pointer-events-none absolute left-1/2 top-[1672px] z-30 ${gameplay ? "w-[450px]" : "w-[712px]"} -translate-x-1/2 select-none`}
       draggable="false"
     />
-    <button
+    <button data-sfx-exclude=""
       type="button"
       data-cta=""
       aria-label="Shop Now"

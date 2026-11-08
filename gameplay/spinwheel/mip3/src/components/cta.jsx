@@ -16,7 +16,7 @@ export const Cta = ({ won = false }) => (
       className={`pointer-events-none absolute left-1/2 z-[80] -translate-x-1/2 select-none scene-entrance animate-scale-pulse ${won ? "top-[1685px] w-[438px] drop-shadow-[0_8px_22px_#0009] offer-cta-enter" : "top-[1685px] w-[438px] cta-enter"}`}
       draggable="false"
     />
-    <button
+    <button data-sfx-exclude=""
       type="button"
       data-cta="true"
       aria-label="Shop now"

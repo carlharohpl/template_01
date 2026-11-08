@@ -1,0 +1,99 @@
+@import "tailwindcss";
+@keyframes holiday-logo-enter {
+  0% { opacity: 0; transform: translateY(calc(-48px * var(--ui-scale,1))); }
+  75% { opacity: 1; transform: translateY(calc(3px * var(--ui-scale,1))); }
+  100% { opacity: 1; transform: none; }
+}
+.holiday-logo-enter { animation: holiday-logo-enter 650ms 40ms cubic-bezier(.16,1,.3,1) both; }
+@keyframes holiday-card-enter {
+  from { opacity: 0; transform: perspective(1800px) translateY(80px) rotateX(7deg); }
+  to { opacity: 1; transform: none; }
+}
+.holiday-card-enter { animation: holiday-card-enter 700ms 80ms cubic-bezier(.16,1,.3,1) both; }
+@keyframes holiday-headline-enter {
+  from { opacity: 0; transform: scale(.94); }
+  to { opacity: 1; transform: none; }
+}
+.holiday-headline-enter { animation: holiday-headline-enter 460ms 640ms cubic-bezier(.16,1,.3,1) both; }
+@keyframes holiday-instruction-enter {
+  from { opacity: 0; transform: translateY(19px); }
+  to { opacity: 1; transform: none; }
+}
+.holiday-instruction-enter { animation: holiday-instruction-enter 400ms 760ms ease-out both; }
+@keyframes holiday-scratch-enter {
+  0% { opacity: 0; transform: scale(.88); }
+  75% { opacity: 1; transform: scale(1.012); }
+  100% { opacity: 1; transform: none; }
+}
+.holiday-scratch-enter { animation: holiday-scratch-enter 560ms 850ms cubic-bezier(.22,.8,.3,1) both; }
+.holiday-scratch-enter.is-active { animation: none; }
+@keyframes holiday-shimmer {
+  0% { opacity: 0; transform: translateX(0); }
+  20%, 75% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(740px); }
+}
+.holiday-shimmer { animation: holiday-shimmer 850ms 1250ms ease-in-out both; }
+.is-active .holiday-shimmer { display: none; }
+.holiday-reward-shimmer { animation: holiday-shimmer 1100ms 650ms ease-in-out both; }
+@keyframes holiday-snowflake-left-enter {
+  from { opacity: 0; transform: translate(-16px, 20px) scale(.65); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes holiday-snowflake-right-enter {
+  from { opacity: 0; transform: translate(16px, -20px) scale(.65); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes holiday-snowflake-spin {
+  from { rotate: 0deg; }
+  to { rotate: 360deg; }
+}
+.holiday-snowflake-left {
+  animation: holiday-snowflake-left-enter 500ms 850ms cubic-bezier(.16,1,.3,1) both,
+    holiday-snowflake-spin 3.2s 1350ms linear infinite;
+}
+.holiday-snowflake-right {
+  animation: holiday-snowflake-right-enter 500ms 950ms cubic-bezier(.16,1,.3,1) both,
+    holiday-snowflake-spin 3.2s 1450ms linear infinite;
+}
+/* These decorative loops stop once the opaque end scene covers gameplay. */
+[data-scene="end"] :is(.holiday-snowflake-left, .holiday-snowflake-right) { animation-play-state: paused; }
+@keyframes holiday-cta-enter {
+  from { opacity: 0; transform: translateY(35px) rotate(1deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes scale-pulse { 0%, 100% { scale: 1; } 50% { scale: 1.2; } }
+.animate-scale-pulse { animation: scale-pulse 1.6s ease-in-out infinite; }
+.holiday-cta-enter.animate-scale-pulse {
+  animation: holiday-cta-enter 500ms 960ms cubic-bezier(.16,1,.3,1) both,
+    scale-pulse 1.6s 1460ms ease-in-out infinite;
+}
+@keyframes holiday-cta-hit { from { visibility: hidden; } to { visibility: visible; } }
+.holiday-cta-hit { animation: holiday-cta-hit 960ms step-end both; }
+.holiday-hand { opacity: 0; visibility: hidden; }
+@keyframes holiday-hand-appear { from { opacity: 0; scale: .96; } to { opacity: 1; scale: 1; } }
+@keyframes holiday-hand-scratch {
+  0%, 100% { transform: translate(var(--guide-x,0px), var(--guide-y,0px)) rotate(0deg); }
+  22% { transform: translate(calc(var(--guide-x,0px) - 155px), calc(var(--guide-y,0px) - 125px)) rotate(-9deg); }
+  43% { transform: translate(calc(var(--guide-x,0px) + 15px), calc(var(--guide-y,0px) - 58px)) rotate(4deg); }
+  64% { transform: translate(calc(var(--guide-x,0px) - 135px), calc(var(--guide-y,0px) - 110px)) rotate(-7deg); }
+  84% { transform: translate(calc(var(--guide-x,0px) + 10px), calc(var(--guide-y,0px) - 25px)) rotate(3deg); }
+}
+.holiday-hand.is-guiding {
+  visibility: visible;
+  animation: holiday-hand-appear 250ms ease-out both, holiday-hand-scratch 2.8s 250ms ease-in-out infinite;
+}
+.holiday-coating { opacity: 1; transition: opacity 500ms ease-out; }
+.holiday-coating.is-revealed { opacity: 0; }
+@keyframes holiday-reward-settle {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.035); }
+  75% { transform: scale(.995); }
+}
+.holiday-reward { transform-box: fill-box; transform-origin: center; }
+.holiday-reward.is-revealed { animation: holiday-reward-settle 700ms 500ms cubic-bezier(.22,.8,.3,1) both; }
+.end-scene-fade { opacity: 0; transition: opacity 500ms ease-out; }
+.end-scene-fade.is-visible { opacity: 1; }
+[data-entrances-running="false"] :is(img, svg, rect),
+[data-cta-ready="false"],
+[data-motion-paused="true"] :is(img, svg, rect) { animation-play-state: paused; }
+[data-cta-ready="false"] { pointer-events: none; }

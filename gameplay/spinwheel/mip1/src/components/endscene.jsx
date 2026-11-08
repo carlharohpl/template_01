@@ -2,23 +2,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import endSceneHtml from "../assets/endscene/endscene.html?endcard";
 import { openDestination } from "./cta";
 import useSound, { playSound, stopSound } from "../hooks/useSound";
-import endSceneSound from "../assets/sounds/endscene1.mp3";
+import endSceneSound from "../assets/sounds/endscene1.mp3?inline";
 
 // Preserve the supplied HTML; only bridge the parent ad host into its iframe.
-const bridgeScript = `
-<script>
-  try {
-    window.mraid = parent.mraid || window.mraid;
-    window.clickTag = parent.clickTag || window.clickTag;
-  } catch (error) {}
-</script>`;
-const bridgedHtml = endSceneHtml.replace(/<\/head\s*>/i, `${bridgeScript}</head>`);
+
+const bridgedHtml = endSceneHtml;
 // Start the offer cue at the requested point in the original videos.
 const OFFER_REVEAL_SECONDS = 3;
 
 const EndScene = ({ active, onReady }) => {
   // Mount the pool before the spin tap so that gesture can prime this delayed cue.
-  const soundPool = useSound(endSceneSound);
+  const soundPool = useSound(endSceneSound, { backend: "media" });
   const soundRef = useRef(null);
   const viewableRef = useRef(true);
   const iframeRef = useRef(null);
@@ -106,18 +100,18 @@ const EndScene = ({ active, onReady }) => {
       viewableRef.current = Boolean(viewable);
       if (!viewable) stopAudio();
     };
-    const mraid = window.mraid;
+    const _removeHostListener = window.mraid?.removeEventListener?.bind(window.mraid);
     try {
-      viewableRef.current = mraid?.isViewable?.() ?? true;
+      viewableRef.current = window.mraid?.isViewable?.() ?? true;
     } catch {
       // Keep the default for preview bridges without viewability support.
     }
     document.addEventListener("visibilitychange", onVisibilityChange);
-    mraid?.addEventListener?.("viewableChange", onViewableChange);
+    window.mraid?.addEventListener?.("viewableChange", onViewableChange);
     return () => {
       stopAudio();
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      mraid?.removeEventListener?.("viewableChange", onViewableChange);
+      _removeHostListener?.("viewableChange", onViewableChange);
     };
   }, []);
 
@@ -140,7 +134,7 @@ const EndScene = ({ active, onReady }) => {
         className="pointer-events-none absolute inset-0 h-full w-full border-0"
         onLoad={handleLoad}
       />
-      <button
+      <button data-sfx-exclude=""
         type="button"
         aria-label="Open offer"
         disabled={!visible}

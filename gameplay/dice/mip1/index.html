@@ -2,44 +2,54 @@
 <html lang="en" class="h-dvh overscroll-none bg-[#f2f2f2]"><head><script src="mraid.js"></script>
 <script>
       (function () {
-        const readyBridges = new WeakSet();
-        const trackedBridges = new WeakSet();
+        const readiness = new WeakMap();
+        const pendingReadiness = new Set();
 
-        function trackMraidReadiness(mraid) {
-          if (
-            !mraid ||
-            trackedBridges.has(mraid) ||
-            typeof mraid.addEventListener !== "function"
-          ) {
-            return;
-          }
-
-          try {
-            mraid.addEventListener("ready", function () {
-              readyBridges.add(mraid);
-            });
-            trackedBridges.add(mraid);
-          } catch (error) {
-            // getState() remains the primary readiness check.
+        function removeReadiness(record) {
+          pendingReadiness.delete(record);
+          if (record.remove) {
+            try { record.remove(); } catch (error) { /* Host disposed. */ }
+            record.remove = null;
           }
         }
 
-        window.isMraidUsable = function (mraid) {
-          if (!mraid) {
-            return false;
+        function trackMraidReadiness(bridge) {
+          const record = readiness.get(bridge) || { ready: false, remove: null };
+          readiness.set(bridge, record);
+          if (record.ready || pendingReadiness.has(record)) return record;
+          if (typeof bridge.addEventListener === "function") {
+            const onReady = function () {
+              if (!pendingReadiness.has(record)) return;
+              record.ready = true;
+              removeReadiness(record);
+            };
+            try {
+              pendingReadiness.add(record);
+              if (typeof bridge.removeEventListener === "function") {
+                record.remove = bridge.removeEventListener.bind(bridge, "ready", onReady);
+              }
+              bridge.addEventListener("ready", onReady);
+            } catch (error) {
+              removeReadiness(record);
+              readiness.delete(bridge);
+            }
           }
+          return record;
+        }
 
-          trackMraidReadiness(mraid);
-          if (typeof mraid.getState !== "function") {
-            return true;
-          }
-
+        window.isMraidUsable = function (bridge) {
+          if (!bridge || (typeof bridge !== "object" && typeof bridge !== "function")) return false;
+          const record = trackMraidReadiness(bridge);
           try {
-            const state = mraid.getState();
-            return state === "default" || state === "expanded";
+            if (typeof bridge.getState !== "function") return bridge === window.mraid && record.ready;
+            const state = bridge.getState();
+            return bridge === window.mraid && (state === "default" || state === "expanded");
           } catch (error) {
-            return readyBridges.has(mraid);
+            return bridge === window.mraid && record.ready;
           }
+        };
+        window.isMraidUsable.dispose = function () {
+          pendingReadiness.forEach(removeReadiness);
         };
       })();
     </script>
@@ -47,31 +57,57 @@
       (function () {
         window.__mip = window.__mip || {};
 
+        // Keep initialization and destination guards raw so packaging can
+        // inspect executable code without bundler rewrites.
         window.__mip.ready = function (callback) {
-          var completed = false;
-          var removeReadyListener = null;
-          function run() {
-            if (completed) return;
-            completed = true;
-            if (removeReadyListener) {
-              try { removeReadyListener("ready", run); } catch (error) {}
+          let cancelled = false;
+          let completed = false;
+          let removeReady = null;
+          function cleanup() {
+            if (removeReady) {
+              try { removeReady(); } catch (error) { /* Host disposed. */ }
+              removeReady = null;
             }
+          }
+          function finish() {
+            if (cancelled || completed) return;
+            completed = true;
+            cleanup();
             callback();
           }
-          if (!window.mraid || typeof window.mraid.getState !== "function") { run(); return; }
-          try {
-            if (window.mraid.getState() === "loading") {
-              if (typeof window.mraid.removeEventListener === "function") {
-                removeReadyListener = window.mraid.removeEventListener.bind(window.mraid);
+          function waitForReady(bridge) {
+            if (typeof bridge.addEventListener !== "function") return;
+            const onReady = function () {
+              cleanup();
+              if (cancelled || completed) return;
+              if (bridge === window.mraid) finish();
+              else check();
+            };
+            try {
+              if (typeof bridge.removeEventListener === "function") {
+                removeReady = bridge.removeEventListener.bind(bridge, "ready", onReady);
               }
-              if (typeof window.mraid.addEventListener === "function") window.mraid.addEventListener("ready", run);
-            } else {
-              run();
-            }
-          } catch (error) { run(); }
+              bridge.addEventListener("ready", onReady);
+            } catch (error) { cleanup(); }
+          }
+          function check() {
+            if (!window.mraid) { finish(); return; }
+            try {
+              if (window.mraid.getState() === "loading") {
+                waitForReady(window.mraid);
+              } else if (window.isMraidUsable(window.mraid)) {
+                finish();
+              } else {
+                waitForReady(window.mraid);
+              }
+            } catch (error) { waitForReady(window.mraid); }
+          }
+          check();
+          return function () { cancelled = true; cleanup(); };
         };
 
-        // Resolve the injected destination and bridge at the moment of activation.
+        // Resolve only the platform-injected tag; never assign a default tag.
+        // Keep an explicit empty argument for the host-resolved destination.
         window.__mip.openDestination = function handleMraidOpen() {
           var injectedUrl = window.clickTag;
           var destinationUrl = typeof injectedUrl === "string" ? injectedUrl.trim() : "";
@@ -93,57 +129,67 @@
 <script>
       (function () {
         window.__mip = window.__mip || {};
-
-        var mraidViewable = true;
-        var pageHidden = false;
-        var installed = false;
-        var mediaDocuments = new Set();
-
-        function syncMediaState() {
-          var active = mraidViewable && !pageHidden && !document.hidden;
-          mediaDocuments.forEach(function (doc) {
-            doc.querySelectorAll("video, audio").forEach(function (element) {
-              if (!active) element.pause();
-              else if (element.tagName === "VIDEO" && element.autoplay) {
-                try { Promise.resolve(element.play()).catch(function () {}); } catch (error) {}
-              }
-            });
-          });
-        }
-
-        window.__mip.registerMediaDocument = function (doc) {
-          if (!doc) return function () {};
-          mediaDocuments.add(doc);
-          function guardPlayback(event) {
-            if ((!mraidViewable || pageHidden || document.hidden) && typeof event.target.pause === "function") event.target.pause();
-          }
-          doc.addEventListener("play", guardPlayback, true);
-          syncMediaState();
-          return function () {
-            mediaDocuments.delete(doc);
-            doc.removeEventListener("play", guardPlayback, true);
-          };
+        let disposeMedia = null;
+        const registered = new Set();
+        let sync = function () {};
+        window.__mip.registerMediaDocument = function (childDocument) {
+          registered.add(childDocument); sync();
+          return function () { registered.delete(childDocument); };
         };
-
         window.__mip.setupMediaViewability = function () {
-          if (installed) return;
-          installed = true;
-          window.__mip.registerMediaDocument(document);
-          document.addEventListener("visibilitychange", syncMediaState);
-          window.addEventListener("pagehide", function () { pageHidden = true; syncMediaState(); });
-          window.addEventListener("pageshow", function () { pageHidden = false; syncMediaState(); });
-          if (!window.mraid) return;
-          function handleViewableChange(viewable) {
-            mraidViewable = Boolean(viewable);
-            syncMediaState();
-          }
-          if (typeof window.mraid.isViewable === "function") {
-            try { mraidViewable = Boolean(window.mraid.isViewable()); } catch (error) {}
-          }
-          if (typeof window.mraid.addEventListener === "function") {
-            try { window.mraid.addEventListener("viewableChange", handleViewableChange); } catch (error) {}
-          }
-          syncMediaState();
+          if (disposeMedia) disposeMedia();
+          let hostVisible = true;
+          let pageHidden = false;
+          let active = true;
+          const removals = [];
+          const syncDocument = function (doc, viewable) {
+            doc.querySelectorAll('video, audio').forEach(function (element) {
+              if (!viewable) element.pause();
+              else if (element.tagName === 'VIDEO' && element.autoplay) element.play()?.catch(function () {});
+            });
+          };
+          sync = function () {
+            if (!active) return;
+            const viewable = hostVisible && !document.hidden && !pageHidden;
+            window.__mraidViewable = viewable;
+            syncDocument(document, viewable);
+            registered.forEach(function (doc) { try { syncDocument(doc, viewable); } catch (_) {} });
+            document.querySelectorAll('iframe').forEach(function (frame) {
+              try {
+                frame.contentWindow?.__sipSetViewable?.(viewable);
+                frame.contentWindow?.__mipSetViewable?.(viewable);
+                if (frame.contentDocument) syncDocument(frame.contentDocument, viewable);
+              } catch (_) { /* Isolated supplied frame. */ }
+            });
+            window.dispatchEvent(new CustomEvent('mraidViewableChange', { detail: { viewable } }));
+          };
+          const onLoad = function (event) { if (event.target?.tagName === 'IFRAME') sync(); };
+          const hide = function () { pageHidden = true; sync(); };
+          const show = function () { pageHidden = false; sync(); };
+          const changed = function (value) { hostVisible = Boolean(value); sync(); };
+          try {
+            if (typeof window.mraid?.isViewable === 'function') hostVisible = Boolean(window.mraid.isViewable());
+            if (typeof window.mraid?.addEventListener === 'function' && typeof window.mraid?.removeEventListener === 'function') {
+              removals.push(window.mraid.removeEventListener.bind(window.mraid, 'viewableChange', changed));
+              window.mraid.addEventListener('viewableChange', changed);
+            }
+          } catch (_) { /* Browser without host lifecycle support. */ }
+          document.addEventListener('load', onLoad, true);
+          document.addEventListener('visibilitychange', sync);
+          window.addEventListener('pagehide', hide);
+          window.addEventListener('pageshow', show);
+          sync();
+          const ownedSync = sync;
+          disposeMedia = function () {
+            active = false;
+            document.removeEventListener('load', onLoad, true);
+            document.removeEventListener('visibilitychange', ownedSync);
+            window.removeEventListener('pagehide', hide);
+            window.removeEventListener('pageshow', show);
+            removals.forEach(function (remove) { try { remove(); } catch (_) {} });
+            registered.clear();
+          };
+          return disposeMedia;
         };
       })();
     </script>
