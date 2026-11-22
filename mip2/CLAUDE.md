@@ -232,6 +232,27 @@ Reuse `endscene.jsx`; App owns flow, component owns content/interaction. No demo
 - **Assets:** root useScaleUI/two-layer layout, no child hooks. **Video:** no useScaleUI; `w-full h-full object-cover`.
 - **Every type:** transparent full-viewport semantic button on wrapper OUTSIDE scaled canvas: `type="button"`, `aria-label="Open offer"`, `data-sfx-exclude=""`, `absolute inset-0 z-30 h-full w-full`; stop propagation/shared handler once. Preserve focus/keyboard/design-required dedicated CTA without double activation; hidden overlay cannot intercept gameplay.
 
+### Mandatory end-scene Base64 packaging and decoder
+
+**STRICTLY REQUIRED: Fix checker compatibility in the playable's packaging output, NEVER by modifying the checker extension or weakening validation.** Encode the ENTIRE prepared end-scene HTML as UTF-8 Base64 at build time through the existing `.html?endcard` pipeline. Embed all referenced images, fonts, audio, and video in the exported file; no external asset dependencies. Keep the main HTML shell and its ordered raw MRAID scripts UNENCODED.
+
+The generated module MUST use this statically recognizable decoding structure, where `packaged` is the build-generated `data:text/html;base64,...` string:
+
+```js
+const endSceneHtml = new TextDecoder().decode(
+  Uint8Array.from(
+    atob(packaged.split(",")[1]),
+    c => c.charCodeAt(0)
+  )
+);
+```
+
+- **Use `.split(",")[1]`, NEVER `.slice(...indexOf(",") + 1)` or an alternative payload-extraction expression in the generated end-scene decoder.** Export the decoded HTML and pass it to the existing iframe's `srcDoc`; no second decode, raw embedded HTML replacement, or switch to iframe `src`.
+- Preserve gameplay, end-scene content, countdown behavior, animations, SFX, shared MRAID routing, readiness, and cleanup. The established narrowly scoped import-preparation rules below still apply; this decoder fix authorizes no additional content changes.
+- Verify decoded UTF-8 content matches the intended prepared end-scene HTML exactly, including non-ASCII text, and that import preparation leaves supplied source files unchanged. When an end scene is supplied, inspect and run the Base64 packaging check against the ACTUAL generated production export under section 10's title/no-build rules. A helper test, source inspection, old export, or export without an end scene does NOT establish checker acceptance for an embedded end scene. Report unavailable or deferred external-checker/export verification explicitly.
+- **Do NOT hide, suppress, downgrade, or misrepresent the separate embedded-document coverage warning.** A passing Base64 packaging check does not establish complete inspection of every embedded document; preserve that distinction in validation and delivery reports.
+- **EMPTY TEMPLATE: keep the packaging helper ready but the end scene INACTIVE (`endSceneHtml = null`).** Do not invent an end scene, add a placeholder import/iframe, or activate decoding until a real end scene is supplied. Temporary verification fixtures stay outside the shipped app and export.
+
 ### Import preparation: dev AND production, in memory
 
 Before validation/encoding, remove ONLY exactly empty `src=""` on source directly inside runtime-filled video. Preserve media/layout/motion and disk HTML. This, the exact standalone-runtime adapter below, and recognized calendar preparation are narrow exceptions, not general tracking repair. The former argument-free MRAID import correction is superseded: ALL embedded child destination handling delegates to the parent; reject incompatible calls clearly instead of rewriting them to another child MRAID call. Supplied destinations never override the parent injected tag.

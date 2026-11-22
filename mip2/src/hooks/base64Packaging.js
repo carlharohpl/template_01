@@ -590,7 +590,8 @@ export function base64Packaging() {
           const { html, url, usesCalendar } = await packageEndCard(file, dependency => this.addWatchFile(dependency));
           documents.set(url, html);
           const calendar = usesCalendar ? `import {calendarClock} from ${JSON.stringify(calendarModule)};window.__mip=window.__mip||{};window.__mip.calendarClock=calendarClock;` : '';
-          return `${calendar}const packaged=${JSON.stringify(url)};export default new TextDecoder().decode(Uint8Array.from(atob(packaged.slice(packaged.indexOf(',')+1)),c=>c.charCodeAt(0)));`;
+          // Keep this decoder shape recognizable to the external Base64 checker.
+          return `${calendar}const packaged=${JSON.stringify(url)};const endSceneHtml=new TextDecoder().decode(Uint8Array.from(atob(packaged.split(",")[1]),c=>c.charCodeAt(0)));export default endSceneHtml;`;
         }
         // Vite may otherwise percent-encode SVG imports; force genuine Base64.
         if (config.command === 'build' && /\.svg$/i.test(file) && !query.includes('raw')) {
