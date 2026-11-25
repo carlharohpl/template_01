@@ -29,6 +29,208 @@ const namespaces = new Set([
 const fail = (message) => { throw new Error(`[creative packaging] ${message}`); };
 const calendarModule = path.join(path.dirname(fileURLToPath(import.meta.url)), 'calendarClock.js').replaceAll('\\', '/');
 
+function languageList(value, label) {
+  if (!Array.isArray(value) || !value.length || value.some(code =>
+    typeof code !== 'string' || !/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/.test(code))) {
+    fail(`${label}: languages must be a nonempty array of lowercase language codes`);
+  }
+  if (!value.includes('en')) fail(`${label}: languages must include en`);
+  if (new Set(value).size !== value.length) fail(`${label}: duplicate language codes`);
+  return ['en', ...value.filter(code => code !== 'en').sort()];
+}
+
+function languageNodes(html, label) {
+  const tree = parseHtml(html, { sourceCodeLocationInfo: true });
+  const head = tree.childNodes.find(node => node.tagName === 'html')?.childNodes.find(node => node.tagName === 'head');
+  if (!head?.sourceCodeLocation?.startTag) fail(`${label}: language metadata requires an explicit head element`);
+  const metas = [];
+  walk(tree, node => {
+    if (node.tagName === 'meta' && node.attrs.some(attr => attr.name === 'name' && attr.value.toLowerCase() === 'acs-languages')) metas.push(node);
+  });
+  if (metas.length > 1) fail(`${label}: duplicate acs-languages metadata`);
+  if (metas[0] && metas[0].parentNode !== head) fail(`${label}: acs-languages must be directly inside head`);
+  return { head, meta: metas[0] };
+}
+
+export function validateLanguageMetadata(html, expected, label = 'creative') {
+  const { meta } = languageNodes(html, label);
+  if (!meta) fail(`${label}: missing acs-languages metadata`);
+  const content = meta.attrs.find(attr => attr.name === 'content')?.value;
+  const languages = languageList(typeof content === 'string' ? content.split(',') : [], label);
+  if (expected && languages.join(',') !== languageList(expected, label).join(',')) {
+    fail(`${label}: acs-languages (${content}) does not match configured languages (${languageList(expected, label).join(',')})`);
+  }
+  return languages;
+}
+
+// Change only the metadata source range, preserving raw MRAID script bytes.
+export function prepareLanguageMetadata(html, languages = ['en'], { label = 'creative', replace = false } = {}) {
+  const codes = languageList(languages, label);
+  const { head, meta } = languageNodes(html, label);
+  if (meta && !replace) validateLanguageMetadata(html, codes, label);
+  const tag = `<meta name="acs-languages" content="${codes.join(',')}" />`;
+  if (meta) {
+    const { startOffset, endOffset } = meta.sourceCodeLocation;
+    return html.slice(0, startOffset) + tag + html.slice(endOffset);
+  }
+  const offset = head.sourceCodeLocation.endTag?.startOffset;
+  if (offset === undefined) fail(`${label}: language metadata requires an explicit closing head tag`);
+  return html.slice(0, offset) + tag + '\n' + html.slice(offset);
+}
+
+const translationName = name => name === 'translations' || name === 'TRANSLATIONS';
+
+function dictionaryProperties(node, label) {
+  if (node?.type === 'CallExpression' && memberPath(node.callee) === 'Object.freeze' && node.arguments.length === 1) node = node.arguments[0];
+  if (node?.type !== 'ObjectExpression') fail(`${label}: automatic language discovery requires a literal translations object; use an explicit language list for other formats`);
+  const properties = new Map();
+  for (const item of node.properties) {
+    const key = item.key?.type === 'Identifier' ? item.key.name : item.key?.value;
+    if (item.type !== 'ObjectProperty' || item.computed || typeof key !== 'string' || properties.has(key)) {
+      fail(`${label}: translation dictionaries cannot use spreads, computed keys, methods, or duplicate keys in auto mode`);
+    }
+    properties.set(key, item.value);
+  }
+  if (!properties.size) fail(`${label}: translation dictionaries must not be empty`);
+  return properties;
+}
+
+function dictionaryLanguages(node, label) {
+  const translations = dictionaryProperties(node, label);
+  const languages = languageList([...translations.keys()], label);
+  const messageKeys = (value, prefix = []) => {
+    const keys = [];
+    for (const [key, child] of dictionaryProperties(value, label)) {
+      const location = [...prefix, key];
+      if (child.type === 'ObjectExpression') keys.push(...messageKeys(child, location));
+      else if (child.type === 'StringLiteral' && child.value.trim()) keys.push(JSON.stringify(location));
+      else fail(`${label}: auto-discovered messages must be nonempty literal strings or nested message objects`);
+    }
+    return keys.sort();
+  };
+  const englishKeys = JSON.stringify(messageKeys(translations.get('en')));
+  for (const language of languages) {
+    if (JSON.stringify(messageKeys(translations.get(language))) !== englishKeys) {
+      fail(`${label}: ${language} message keys do not match en; complete the translations before declaring support`);
+    }
+  }
+  return languages;
+}
+
+function discoverJsDictionaries(code, label, { defaultDictionary = false } = {}) {
+  const tree = parseJs(code, { sourceType: 'unambiguous', plugins: ['jsx'] });
+  const dictionaries = [];
+  const imports = [];
+  walk(tree, node => {
+    if (node.type === 'VariableDeclarator' && translationName(node.id?.name)) {
+      dictionaries.push(dictionaryLanguages(node.init, label));
+    }
+    if (node.type === 'AssignmentExpression' && ['window.translations', 'window.TRANSLATIONS'].includes(memberPath(node.left))) {
+      dictionaries.push(dictionaryLanguages(node.right, label));
+    }
+    if (defaultDictionary && node.type === 'ExportDefaultDeclaration') {
+      if (node.declaration.type !== 'Identifier') dictionaries.push(dictionaryLanguages(node.declaration, label));
+      else if (!translationName(node.declaration.name)) fail(`${label}: export a literal translations dictionary or use an explicit language list`);
+    }
+    if (['ImportDeclaration', 'ExportNamedDeclaration', 'ExportAllDeclaration'].includes(node.type) && node.source) {
+      const importedDictionary = node.type === 'ImportDeclaration' && node.specifiers.some(item =>
+        item.type === 'ImportDefaultSpecifier' && translationName(item.local.name));
+      // Preserve the default-export hint through barrel modules, including
+      // export { default as translations } and chained export { default }.
+      const reexportedDictionary = node.type === 'ExportNamedDeclaration' && node.specifiers.some(item => {
+        const local = item.local?.name ?? item.local?.value;
+        const exported = item.exported?.name ?? item.exported?.value;
+        return local === 'default' && (translationName(exported) || (defaultDictionary && exported === 'default'));
+      });
+      imports.push({ source: node.source.value, dictionary: importedDictionary || reexportedDictionary });
+    }
+    if (node.type === 'ImportExpression' || (node.type === 'CallExpression' && node.callee.type === 'Import')) {
+      const source = node.source ?? node.arguments[0];
+      if (source?.type !== 'StringLiteral') fail(`${label}: computed dynamic imports cannot be inspected for languages; use an explicit language list`);
+      imports.push({ source: source.value, dictionary: false });
+    }
+  });
+  return { dictionaries, imports };
+}
+
+function matchingDictionaries(dictionaries, label) {
+  const languages = dictionaries[0] ?? ['en'];
+  if (dictionaries.some(value => value.join(',') !== languages.join(','))) {
+    fail(`${label}: translation dictionaries disagree on supported languages; do not combine partial language sets`);
+  }
+  return { languages, discovered: dictionaries.length > 0 };
+}
+
+function htmlDictionaries(html, label) {
+  const dictionaries = [];
+  const imports = [];
+  walk(parseHtml(html), node => {
+    if (node.tagName !== 'script') return;
+    const attrs = Object.fromEntries(node.attrs.map(attr => [attr.name, attr.value]));
+    if (attrs.src) {
+      if (attrs.src !== 'mraid.js') imports.push({ source: attrs.src, dictionary: false });
+      return;
+    }
+    const code = node.childNodes.map(child => child.value || '').join('');
+    if (attrs.type === 'application/json' && translationName(attrs.id)) {
+      JSON.parse(code);
+      dictionaries.push(dictionaryLanguages(parseJs(`(${code})`).program.body[0].expression, label));
+    } else if (code.trim() && (!attrs.type || /^(?:module|(?:text|application)\/javascript)$/.test(attrs.type))) {
+      const found = discoverJsDictionaries(code, label);
+      dictionaries.push(...found.dictionaries);
+      imports.push(...found.imports);
+    }
+  });
+  return { dictionaries, imports };
+}
+
+export async function discoverGameplayLanguages(html, { root, resolve, watch = () => {} }) {
+  const { dictionaries, imports } = htmlDictionaries(html, 'index.html');
+  const seen = new Set();
+  async function inspectImported({ source, dictionary }, importer) {
+    if (source.includes('?endcard')) return; // End scenes are checked independently.
+    const resolved = await resolve(source, importer);
+    const id = typeof resolved === 'string' ? resolved : resolved?.id;
+    if (!id) {
+      if (source.startsWith('.') || source.startsWith('/') || dictionary) fail(`${importer}: cannot resolve ${source} for language discovery`);
+      return;
+    }
+    const [file, query = ''] = id.split('?');
+    if (file.startsWith('\0') || /[\\/]node_modules[\\/]/.test(file) || !/\.(?:[cm]?jsx?|json)$/i.test(file)) return;
+    if (query) {
+      if (dictionary) fail(`${file}: queried translation imports require an explicit language list`);
+      return;
+    }
+    const key = `${file}:${dictionary}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    watch(file);
+    const code = await fs.readFile(file, 'utf8');
+    if (file.endsWith('.json')) {
+      if (dictionary) {
+        JSON.parse(code);
+        dictionaries.push(dictionaryLanguages(parseJs(`(${code})`).program.body[0].expression, file));
+      }
+      return;
+    }
+    const found = discoverJsDictionaries(code, file, { defaultDictionary: dictionary });
+    dictionaries.push(...found.dictionaries);
+    for (const dependency of found.imports) await inspectImported(dependency, file);
+  }
+  for (const dependency of imports) await inspectImported(dependency, path.join(root, 'index.html'));
+  return matchingDictionaries(dictionaries, 'gameplay');
+}
+
+function endCardLanguageOptions(source, label, configured) {
+  if (configured !== 'auto') return { languages: languageList(configured, label), replace: false };
+  const found = htmlDictionaries(source, label);
+  if (found.imports.length) fail(`${label}: inline end-card scripts before automatic language discovery`);
+  const { languages, discovered } = matchingDictionaries(found.dictionaries, label);
+  // A preexisting multilingual declaration without a recognized dictionary needs review.
+  if (languageNodes(source, label).meta) validateLanguageMetadata(source, discovered ? undefined : languages, label);
+  return { languages, replace: discovered };
+}
+
 // Only explicit calendar consumers may use preview time. Never replace Date
 // globally: media, input timestamps, and elapsed timers must remain real-time.
 function calendarEdits(code, label) {
@@ -312,7 +514,7 @@ function dataReference(value, label, documents, depth) {
     if (documents && documents.get(value) !== html) fail(`${label}: encoded end card does not match its build-time document`);
     validateHtml(html, { label: `${label} (decoded end card)`, depth: depth + 1 });
   } else if (mime === 'image/svg+xml') {
-    validateHtml(new TextDecoder('utf-8', { fatal: true }).decode(bytes), { label: `${label} (decoded SVG)`, depth: depth + 1 });
+    validateHtml(new TextDecoder('utf-8', { fatal: true }).decode(bytes), { label: `${label} (decoded SVG)`, depth: depth + 1, svg: true });
   } else if (/^(?:text\/|application\/(?:javascript|json|xml))/.test(mime)) {
     fail(`${label}: unsupported embedded executable/text asset ${mime}`);
   }
@@ -355,7 +557,8 @@ function validateCss(css, label, documents, depth) {
   }
 }
 
-export function validateHtml(html, { label = 'creative', main = false, documents, depth = 0 } = {}) {
+export function validateHtml(html, { label = 'creative', main = false, documents, depth = 0, svg = false } = {}) {
+  if (!svg) validateLanguageMetadata(html, undefined, label);
   checkNavigation(html, label);
   validateUrlTokens(html, label, documents, depth);
   const tree = parseHtml(html, { sourceCodeLocationInfo: true });
@@ -509,7 +712,7 @@ async function prepareStandaloneSip(source, label, watch) {
 // Usage: import endCardHtml from './endcard.html?endcard';
 // Feed endCardHtml to the existing iframe's srcDoc. The generated module holds
 // only Base64 and decodes UTF-8 at runtime; the source document stays editable.
-export async function packageEndCard(file, watch = () => {}) {
+export async function packageEndCard(file, watch = () => {}, { languages = 'auto' } = {}) {
   watch(file);
   const supplied = await prepareStandaloneSip(await fs.readFile(file, 'utf8'), file, watch);
   const { source, usesCalendar } = prepareEndCardCalendar(compatibleEndCard(supplied), file);
@@ -554,25 +757,65 @@ export async function packageEndCard(file, watch = () => {}) {
     if (!value.startsWith('data:') && !value.startsWith('#')) pending.push(inlineUrl(value).then(url => edits.push({ start: match.index, end: match.index + match[0].length, value: `url('${url}')` })));
   }
   await Promise.all(pending);
-  const html = base64SvgUrls(editsTo(source, edits));
+  const languageOptions = endCardLanguageOptions(source, file, languages);
+  const html = prepareLanguageMetadata(base64SvgUrls(editsTo(source, edits)), languageOptions.languages, { label: file, replace: languageOptions.replace });
   validateHtml(html, { label: file });
   const url = `data:text/html;base64,${Buffer.from(html).toString('base64')}`;
   if (decodeBase64(url.split(',')[1], file).toString('utf8') !== html) fail(`${file}: end-card round-trip mismatch`);
-  return { html, url, usesCalendar };
+  return { html, url, usesCalendar, languages: languageOptions.languages };
 }
 
-export function base64Packaging() {
+export function base64Packaging(languageConfig = {}) {
+  if (!languageConfig || typeof languageConfig !== 'object' || Array.isArray(languageConfig) ||
+      Object.keys(languageConfig).some(key => !['gameplay', 'endScenes'].includes(key))) {
+    fail('language configuration: expected gameplay and endScenes options in vite.config.js');
+  }
+  const automaticGameplay = (languageConfig.gameplay ?? 'auto') === 'auto';
+  let gameplayLanguages = automaticGameplay ? ['en'] : languageList(languageConfig.gameplay, 'gameplay');
+  const configuredScenes = languageConfig.endScenes ?? {};
+  if (typeof configuredScenes !== 'object' || Array.isArray(configuredScenes)) fail('endScenes must map source paths to language arrays');
+  const endSceneLanguages = new Map();
   const documents = new Map();
   let config;
   let rawScripts;
+  let resolveImport;
+  let watchImport = () => {};
+  const refreshGameplayLanguages = async html => {
+    if (automaticGameplay) {
+      const found = await discoverGameplayLanguages(html, { root: config.root, resolve: resolveImport, watch: watchImport });
+      gameplayLanguages = found.languages;
+    }
+  };
   return [
     {
       name: 'creative-base64-input',
       enforce: 'pre',
-      configResolved(resolved) { config = resolved; },
+      configResolved(resolved) {
+        config = resolved;
+        endSceneLanguages.clear();
+        for (const [file, languages] of Object.entries(configuredScenes)) {
+          if (!/\.html?$/i.test(file) || path.isAbsolute(file) || file.split(/[\\/]/).includes('..')) {
+            fail(`endScenes: use a project-relative HTML source path: ${file}`);
+          }
+          const absolute = path.resolve(config.root, file);
+          if (endSceneLanguages.has(absolute)) fail(`endScenes: duplicate source path: ${file}`);
+          endSceneLanguages.set(absolute, languages === 'auto' ? 'auto' : languageList(languages, file));
+        }
+      },
+      transformIndexHtml: {
+        order: 'pre',
+        async handler(html) {
+          // Read source HTML, not Vite's injected HMR/client scripts.
+          await refreshGameplayLanguages(await fs.readFile(path.join(config.root, 'index.html'), 'utf8'));
+          return prepareLanguageMetadata(html, gameplayLanguages, { label: 'index.html', replace: true });
+        },
+      },
       async buildStart() {
         documents.clear();
+        resolveImport = (source, importer) => this.resolve(source, importer);
+        watchImport = file => this.addWatchFile(file);
         const shell = await fs.readFile(path.join(config.root, 'index.html'), 'utf8');
+        await refreshGameplayLanguages(shell);
         rawScripts = [...shell.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]);
         for (const script of rawScripts) inspectJs(script, 'index.html', value => checkNavigation(value, 'index.html'));
         checkRawDestination(parseJs(rawScripts[1] || ''), 'index.html', true);
@@ -587,7 +830,11 @@ export function base64Packaging() {
             if (query) fail(`${file}: raw embedded HTML import; use .html?endcard`);
             return null; // Vite owns the main shell.
           }
-          const { html, url, usesCalendar } = await packageEndCard(file, dependency => this.addWatchFile(dependency));
+          const configuredLanguages = endSceneLanguages.get(path.resolve(file)) ?? 'auto';
+          const { html, url, usesCalendar, languages } = await packageEndCard(file, dependency => this.addWatchFile(dependency), { languages: configuredLanguages });
+          if (languages.join(',') !== gameplayLanguages.join(',')) {
+            fail(`${file}: end-scene languages (${languages.join(',')}) must match gameplay (${gameplayLanguages.join(',')}); review actual translations and vite.config.js language options`);
+          }
           documents.set(url, html);
           const calendar = usesCalendar ? `import {calendarClock} from ${JSON.stringify(calendarModule)};window.__mip=window.__mip||{};window.__mip.calendarClock=calendarClock;` : '';
           // Keep this decoder shape recognizable to the external Base64 checker.
@@ -606,6 +853,14 @@ export function base64Packaging() {
           if (htmlDocument.test(value)) fail(`${id}: raw embedded HTML document; use .html?endcard`);
         });
       },
+      async handleHotUpdate({ server }) {
+        const previous = gameplayLanguages.join(',');
+        await refreshGameplayLanguages(await fs.readFile(path.join(config.root, 'index.html'), 'utf8'));
+        if (gameplayLanguages.join(',') !== previous) {
+          server.ws.send({ type: 'full-reload' });
+          return [];
+        }
+      },
     },
     {
       name: 'creative-final-validation',
@@ -620,6 +875,8 @@ export function base64Packaging() {
           // before validation; other non-Base64 assets remain errors.
           output.source = base64SvgUrls(String(output.source));
           const html = output.source;
+          validateLanguageMetadata(html, gameplayLanguages, 'final HTML');
+          for (const document of documents.values()) validateLanguageMetadata(document, gameplayLanguages, 'packaged end scene');
           for (const script of rawScripts) if (!html.includes(script)) fail('validator-visible raw MRAID scripts changed during bundling');
           const bytes = validateOutput(html, documents);
           this.info(`Validated ${formatMB(bytes)} / ${formatMB(MAX_BYTES)} maximum; ${documents.size} encoded end-card document(s).`);
@@ -631,6 +888,7 @@ export function base64Packaging() {
         const files = await fs.readdir(directory);
         if (files.length !== 1 || files[0] !== 'index.html') fail('output directory contains external files; remove public assets or import them for inlining');
         const html = await fs.readFile(path.join(directory, 'index.html'), 'utf8');
+        validateLanguageMetadata(html, gameplayLanguages, 'written HTML');
         for (const script of rawScripts) if (!html.includes(script)) fail('written output changed the raw MRAID scripts');
         const bytes = validateOutput(html, documents);
         if ((await fs.stat(path.join(directory, 'index.html'))).size !== bytes) fail('written file byte count differs from the validated output');

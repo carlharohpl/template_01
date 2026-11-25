@@ -90,7 +90,14 @@ function localCreativePreview() {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [localMraidFallback(), localCreativePreview(), react(), tailwindcss(), viteSingleFile({ removeViteModuleLoader: true }), base64Packaging()],
+  plugins: [localMraidFallback(), localCreativePreview(), react(), tailwindcss(), viteSingleFile({ removeViteModuleLoader: true }), base64Packaging({
+    // Discover language keys from reachable translations dictionaries; otherwise en.
+    // Explicit arrays remain available for formats that cannot be inspected statically.
+    gameplay: "auto",
+    // Optional project-relative end-card paths mapped to explicit language arrays.
+    // Unlisted cards discover their own dictionaries and must match gameplay.
+    endScenes: {},
+  })],
   build: {
     assetsInlineLimit: () => true,
     modulePreload: false,
